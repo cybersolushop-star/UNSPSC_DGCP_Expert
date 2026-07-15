@@ -6,27 +6,20 @@ import time
 
 from io import BytesIO
 from datetime import datetime
+from pathlib import Path
 
 from rapidfuzz import fuzz
-
-from sentence_transformers import (
-    SentenceTransformer,
-    util
-)
+from sentence_transformers import SentenceTransformer, util
 
 # =====================================================
 # CONFIG
 # =====================================================
 
-from pathlib import Path
-
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 DB_FILE = BASE_DIR / "db" / "DGCP_UNSPSC.db"
 
 SEMANTIC_WEIGHT = 0.70
 FUZZY_WEIGHT = 0.30
-
 MIN_SCORE = 45
 
 # =====================================================
@@ -44,22 +37,13 @@ st.set_page_config(
 # =====================================================
 
 def normalizar(texto):
-
     texto = str(texto)
-
     texto = texto.lower().strip()
-
     texto = "".join(
-        c
-        for c in unicodedata.normalize(
-            "NFD",
-            texto
-        )
+        c for c in unicodedata.normalize("NFD", texto)
         if unicodedata.category(c) != "Mn"
     )
-
     return texto
-
 
 # =====================================================
 # MODELO IA
@@ -67,11 +51,9 @@ def normalizar(texto):
 
 @st.cache_resource
 def cargar_modelo():
-
     return SentenceTransformer(
         "paraphrase-multilingual-MiniLM-L12-v2"
     )
-
 
 # =====================================================
 # CATALOGO
@@ -79,30 +61,17 @@ def cargar_modelo():
 
 @st.cache_data
 def cargar_catalogo():
-
     with sqlite3.connect(DB_FILE) as conn:
+        df = pd.read_sql("SELECT * FROM catalogo", conn)
 
-        df = pd.read_sql(
-            "SELECT * FROM catalogo",
-            conn
-        )
-
-    df = df.drop_duplicates(
-        subset=["Código UNSPSC"]
-    )
+    df = df.drop_duplicates(subset=["Código UNSPSC"])
 
     df["texto_busqueda"] = (
-
-        df["Descripción"].fillna("")
-        + " "
-        + df["Definición"].fillna("")
-        + " "
-        + df["Segmento"].fillna("")
-        + " "
-        + df["Familia"].fillna("")
-        + " "
-        + df["Clase"].fillna("")
-
+        df["Descripción"].fillna("") + " " +
+        df["Definición"].fillna("") + " " +
+        df["Segmento"].fillna("") + " " +
+        df["Familia"].fillna("") + " " +
+        df["Clase"].fillna("")
     )
 
     df["texto_busqueda"] = (
@@ -113,154 +82,110 @@ def cargar_catalogo():
 
     return df
 
-
 # =====================================================
 # SINONIMOS
 # =====================================================
 
 @st.cache_data
 def cargar_sinonimos():
-
     try:
-
         with sqlite3.connect(DB_FILE) as conn:
-
             df = pd.read_sql(
-                """
-                SELECT termino,sinonimo
-                FROM sinonimos
-                """,
+                "SELECT termino, sinonimo FROM sinonimos",
                 conn
             )
 
         diccionario = {}
 
         for _, fila in df.iterrows():
+            termino = normalizar(fila["termino"])
+            sinonimo = normalizar(fila["sinonimo"])
 
-            termino = normalizar(
-                fila["termino"]
-            )
-
-            sinonimo = normalizar(
-                fila["sinonimo"]
-            )
-
-            if termino not in diccionario:
-
-                diccionario[termino] = []
-
-            diccionario[termino].append(
-                sinonimo
-            )
+            diccionario.setdefault(
+                termino,
+                []
+            ).append(sinonimo)
 
         return diccionario
 
     except Exception:
-
         return {}
-
 
 # =====================================================
 # EMBEDDINGS
 # =====================================================
 
+import torch
+
 @st.cache_resource
-def generar_embeddings(textos):
+def cargar_embeddings():
 
-    modelo = cargar_modelo()
+    archivo = BASE_DIR / "db" / "embeddings.pt"
 
-    return modelo.encode(
-        textos,
-        convert_to_tensor=True,
-        show_progress_bar=False
+    return torch.load(
+        archivo,
+        map_location="cpu"
     )
-
 
 # =====================================================
 # RAPIDFUZZ
 # =====================================================
 
 def fuzzy_score(a, b):
-
     s1 = fuzz.token_set_ratio(a, b)
     s2 = fuzz.token_sort_ratio(a, b)
     s3 = fuzz.partial_ratio(a, b)
-
-    return max(
-        s1,
-        s2,
-        s3
-    )
-
+    return max(s1, s2, s3)
 
 # =====================================================
 # LOG
 # =====================================================
 
-def registrar_busqueda(
-    consulta,
-    cantidad
-):
-
+def registrar_busqueda(consulta, cantidad):
     try:
-
         with sqlite3.connect(DB_FILE) as conn:
 
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS
-                consultas(
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS consultas(
                     id INTEGER PRIMARY KEY,
                     fecha TEXT,
                     consulta TEXT,
                     resultados INTEGER
                 )
-                """
-            )
+            """)
 
-            conn.execute(
-                """
+            conn.execute("""
                 INSERT INTO consultas
-                (
-                    fecha,
-                    consulta,
-                    resultados
-                )
-                VALUES (?,?,?)
-                """,
-                (
-                    datetime.now().isoformat(),
-                    consulta,
-                    cantidad
-                )
-            )
+                (fecha, consulta, resultados)
+                VALUES (?, ?, ?)
+            """, (
+                datetime.now().isoformat(),
+                consulta,
+                cantidad
+            ))
 
             conn.commit()
 
-    except:
+    except Exception:
         pass
-
 
 # =====================================================
 # EXPORTAR EXCEL
 # =====================================================
 
 def generar_excel(df):
-
     salida = BytesIO()
 
     with pd.ExcelWriter(
         salida,
         engine="openpyxl"
     ) as writer:
-
         df.to_excel(
             writer,
             index=False
         )
 
     return salida.getvalue()
-
 
 # =====================================================
 # BUSQUEDA HIBRIDA
@@ -275,15 +200,10 @@ def buscar_hibrido(
 
     modelo = cargar_modelo()
 
-    consulta_norm = normalizar(
-        consulta
-    )
+    consulta_norm = normalizar(consulta)
 
     terminos = [consulta_norm]
-
-    terminos.extend(
-        sinonimos
-    )
+    terminos.extend(sinonimos)
 
     mejor_similitud = None
 
@@ -291,7 +211,8 @@ def buscar_hibrido(
 
         emb = modelo.encode(
             termino,
-            convert_to_tensor=True
+            convert_to_tensor=True,
+            show_progress_bar=False
         )
 
         similitud = util.cos_sim(
@@ -300,22 +221,11 @@ def buscar_hibrido(
         )[0]
 
         if mejor_similitud is None:
-
             mejor_similitud = similitud
-
         else:
-
-            mejor_similitud = (
-                util.pytorch_cos_sim(
-                    emb,
-                    embeddings_catalogo
-                )[0]
-                .maximum(
-                    mejor_similitud
-                )
+            mejor_similitud = mejor_similitud.maximum(
+                similitud
             )
-
-    resultados = []
 
     similitudes = (
         mejor_similitud
@@ -323,38 +233,29 @@ def buscar_hibrido(
         .numpy()
     )
 
+    resultados = []
+
     for idx, fila in df.iterrows():
 
-        texto = fila[
-            "texto_busqueda"
-        ]
+        texto = fila["texto_busqueda"]
 
         fuzzy = fuzzy_score(
             consulta_norm,
             texto
         )
 
-        semantico = (
-            float(
-                similitudes[idx]
-            ) * 100
-        )
+        semantico = float(
+            similitudes[idx]
+        ) * 100
 
         score = (
-            SEMANTIC_WEIGHT
-            * semantico
-            +
-            FUZZY_WEIGHT
-            * fuzzy
+            SEMANTIC_WEIGHT * semantico +
+            FUZZY_WEIGHT * fuzzy
         )
 
         if score >= MIN_SCORE:
-
             resultados.append(
-                (
-                    score,
-                    fila
-                )
+                (score, fila)
             )
 
     resultados.sort(
@@ -364,46 +265,33 @@ def buscar_hibrido(
 
     return resultados[:50]
 
-
 # =====================================================
 # TITULO
 # =====================================================
 
-st.title(
-    "🔎 UNSPSC DGCP Expert"
-)
-
-st.write(
-    "Catálogo Oficial de Bienes y Servicios DGCP"
-)
+st.title("🔎 UNSPSC DGCP Expert")
+st.write("Catálogo Oficial de Bienes y Servicios DGCP")
 
 # =====================================================
 # CARGA DATOS
 # =====================================================
 
 catalogo = cargar_catalogo()
-
 dic_sinonimos = cargar_sinonimos()
 
 with st.spinner(
-    "Inicializando modelo semántico..."
+    "Cargando embeddings..."
 ):
 
     embeddings_catalogo = (
-        generar_embeddings(
-            catalogo[
-                "texto_busqueda"
-            ].tolist()
-        )
+        cargar_embeddings()
     )
 
 # =====================================================
-# SIDEBAR
+# FILTROS
 # =====================================================
 
-st.sidebar.header(
-    "Filtros"
-)
+st.sidebar.header("Filtros")
 
 segmentos = sorted(
     catalogo["Segmento"]
@@ -417,10 +305,8 @@ segmento = st.sidebar.selectbox(
 )
 
 if segmento != "Todos":
-
     catalogo = catalogo[
-        catalogo["Segmento"]
-        == segmento
+        catalogo["Segmento"] == segmento
     ]
 
 familias = sorted(
@@ -435,10 +321,8 @@ familia = st.sidebar.selectbox(
 )
 
 if familia != "Todas":
-
     catalogo = catalogo[
-        catalogo["Familia"]
-        == familia
+        catalogo["Familia"] == familia
     ]
 
 clases = sorted(
@@ -453,14 +337,12 @@ clase = st.sidebar.selectbox(
 )
 
 if clase != "Todas":
-
     catalogo = catalogo[
-        catalogo["Clase"]
-        == clase
+        catalogo["Clase"] == clase
     ]
 
 # =====================================================
-# CONSULTA
+# BUSQUEDA
 # =====================================================
 
 consulta = st.text_input(
@@ -481,10 +363,9 @@ if consulta:
     )
 
     if sinonimos:
-
         st.info(
-            "Sinónimos detectados: "
-            + ", ".join(sinonimos)
+            "Sinónimos detectados: " +
+            ", ".join(sinonimos)
         )
 
     resultados = buscar_hibrido(
@@ -524,27 +405,15 @@ if consulta:
     exportar = []
 
     for score, fila in resultados:
-
-        exportar.append(
-            {
-                "Score": round(
-                    score,
-                    2
-                ),
-                "Código UNSPSC":
-                    fila["Código UNSPSC"],
-                "Descripción":
-                    fila["Descripción"],
-                "Definición":
-                    fila["Definición"],
-                "Segmento":
-                    fila["Segmento"],
-                "Familia":
-                    fila["Familia"],
-                "Clase":
-                    fila["Clase"]
-            }
-        )
+        exportar.append({
+            "Score": round(score, 2),
+            "Código UNSPSC": fila["Código UNSPSC"],
+            "Descripción": fila["Descripción"],
+            "Definición": fila["Definición"],
+            "Segmento": fila["Segmento"],
+            "Familia": fila["Familia"],
+            "Clase": fila["Clase"]
+        })
 
     df_exportar = pd.DataFrame(
         exportar
@@ -573,39 +442,10 @@ if consulta:
             f"{score:.0f}% | {fila['Código UNSPSC']} | {fila['Descripción']}"
         ):
 
-            st.write(
-                "**Código:**",
-                fila["Código UNSPSC"]
-            )
-
-            st.write(
-                "**Descripción:**",
-                fila["Descripción"]
-            )
-
-            st.write(
-                "**Definición:**",
-                fila["Definición"]
-            )
-
-            st.write(
-                "**Segmento:**",
-                fila["Segmento"]
-            )
-
-            st.write(
-                "**Familia:**",
-                fila["Familia"]
-            )
-
-            st.write(
-                "**Clase:**",
-                fila["Clase"]
-            )
-
-            st.write(
-                "**Versión:**",
-                fila["Fecha Versión"]
-            )
-
-   
+            st.write("**Código:**", fila["Código UNSPSC"])
+            st.write("**Descripción:**", fila["Descripción"])
+            st.write("**Definición:**", fila["Definición"])
+            st.write("**Segmento:**", fila["Segmento"])
+            st.write("**Familia:**", fila["Familia"])
+            st.write("**Clase:**", fila["Clase"])
+            st.write("**Versión:**", fila["Fecha Versión"])
