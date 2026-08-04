@@ -1,0 +1,17 @@
+# Archivos pesados de la base de datos (NO subir a GitHub)
+db/embeddings.pt
+db/DGCP_UNSPSC.db
+
+# Caché de Python
+__pycache__/
+*.pyc
+
+# Logs
+logs/
+*.log
+
+# Variables de entorno
+.env
+
+# Archivos temporales de Excel
+~$*.xlsx

@@ -1,0 +1,89 @@
+# actualizar_codigos_familia.py
+import sqlite3
+import pandas as pd
+from pathlib import Path
+import shutil
+from datetime import datetime
+
+DB_PATH = Path("db/DGCP_UNSPSC.db")
+
+def actualizar_codigos_familia():
+    """Actualiza la columna Código Familia en el catálogo"""
+    
+    print("="*70)
+    print("  🔧 ACTUALIZANDO CÓDIGOS DE FAMILIA")
+    print("="*70)
+    
+    # 1. Hacer respaldo
+    backup_path = DB_PATH.parent / f"DGCP_UNSPSC_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    shutil.copy2(DB_PATH, backup_path)
+    print(f"✅ Respaldo creado: {backup_path}")
+    
+    # 2. Conectar a la base de datos
+    conn = sqlite3.connect(DB_PATH)
+    
+    # 3. Verificar estado actual
+    df_actual = pd.read_sql_query("SELECT 'Código UNSPSC', 'Código Familia' FROM catalogo LIMIT 10", conn)
+    print("\n📋 Estado actual del catálogo:")
+    print(df_actual)
+    
+    # 4. Actualizar los códigos de familia
+    print("\n🔄 Generando códigos de familia a partir de 'Código UNSPSC'...")
+    
+    # Limpiar códigos UNSPSC y extraer primeros 8 dígitos
+    cursor = conn.cursor()
+    
+    # Actualizar todos los registros
+    cursor.execute("""
+        UPDATE catalogo 
+        SET 'Código Familia' = SUBSTR(REPLACE(REPLACE(REPLACE('Código UNSPSC', '.', ''), '-', ''), ' ', ''), 1, 8)
+        WHERE 'Código UNSPSC' IS NOT NULL
+    """)
+    
+    conn.commit()
+    
+    # 5. Verificar resultado
+    df_verificar = pd.read_sql_query("SELECT 'Código UNSPSC', 'Código Familia' FROM catalogo LIMIT 10", conn)
+    print("\n✅ Nuevo estado del catálogo:")
+    print(df_verificar)
+    
+    # 6. Contar cuántos registros se actualizaron
+    total = pd.read_sql_query("SELECT COUNT(*) FROM catalogo WHERE 'Código Familia' IS NOT NULL", conn).iloc[0,0]
+    print(f"\n📊 Registros actualizados: {total}")
+    
+    # 7. Verificar códigos de familia únicos
+    distintos = pd.read_sql_query("SELECT COUNT(DISTINCT 'Código Familia') FROM catalogo WHERE 'Código Familia' IS NOT NULL", conn).iloc[0,0]
+    print(f"📊 Códigos de familia únicos: {distintos}")
+    
+    conn.close()
+    
+    print("\n" + "="*70)
+    print("✅ ¡Actualización completada!")
+    print("="*70)
+
+def verificar_despues():
+    """Verifica que los códigos se actualizaron correctamente"""
+    conn = sqlite3.connect(DB_PATH)
+    
+    print("\n" + "="*70)
+    print("  🔍 VERIFICANDO ACTUALIZACIÓN")
+    print("="*70)
+    
+    # Ver código 44111501
+    df = pd.read_sql_query("SELECT 'Código UNSPSC', 'Código Familia' FROM catalogo WHERE 'Código UNSPSC' LIKE '%44111501%'", conn)
+    
+    if not df.empty:
+        print("\n✅ El código 44111501 ahora tiene su código de familia:")
+        print(df)
+    else:
+        print("\n⚠️ El código 44111501 no existe en el catálogo")
+    
+    # Ver cuántos códigos de familia tiene el catálogo
+    distintos = pd.read_sql_query("SELECT COUNT(DISTINCT 'Código Familia') FROM catalogo WHERE 'Código Familia' IS NOT NULL", conn).iloc[0,0]
+    print(f"\n📊 Total de códigos de familia en el catálogo: {distintos}")
+    
+    conn.close()
+
+if __name__ == "__main__":
+    actualizar_codigos_familia()
+    verificar_despues()
