@@ -99,6 +99,24 @@ def cargar_catalogo():
     return df
 
 @st.cache_data
+def cargar_catalogo_con_digepres():
+    """Carga el catálogo con DIGEPRES desde catalogo_final.csv"""
+    try:
+        csv_path = Path("data/catalogo_final.csv")
+        if csv_path.exists():
+            df = pd.read_csv(csv_path)
+            # Asegurar que las columnas sean strings
+            df['Código'] = df['Código'].astype(str).str.strip()
+            df['cuenta_digepres'] = df['cuenta_digepres'].astype(str).str.strip()
+            return df
+        else:
+            st.warning("No se encontró el archivo catalogo_final.csv")
+            return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error cargando catalogo_final.csv: {e}")
+        return pd.DataFrame()
+
+@st.cache_data
 def cargar_embeddings():
     """Carga embeddings desde archivo .pt"""
     data = torch.load("db/embeddings.pt", map_location="cpu")
@@ -378,15 +396,27 @@ if consulta and consulta != st.session_state.consulta:
             
             if df is not None and not df.empty:
                 if es_busqueda_por_cuenta(consulta):
-                    # Búsqueda por cuenta DIGEPRES
-                    df_cuenta = df[df['cuenta_digepres'].astype(str).str.strip() == consulta.strip()]
-                    if not df_cuenta.empty:
-                        resultados = []
-                        for _, fila in df_cuenta.iterrows():
-                            resultados.append((100.0, True, fila))
-                        st.session_state.resultados = resultados
-                        st.session_state.sinonimos = []
-                        st.session_state.tipo_busqueda = "cuenta"
+                    # Búsqueda por cuenta DIGEPRES (usando catalogo_final.csv)
+                    df_digepres = cargar_catalogo_con_digepres()
+                    if not df_digepres.empty:
+                        df_cuenta = df_digepres[df_digepres['cuenta_digepres'].astype(str).str.strip() == consulta.strip()]
+                        if not df_cuenta.empty:
+                            resultados = []
+                            for _, fila in df_cuenta.iterrows():
+                                codigo = fila['Código']
+                                fila_catalogo = df[df["Código UNSPSC"].astype(str).str.strip() == str(codigo).strip()]
+                                if not fila_catalogo.empty:
+                                    resultados.append((100.0, True, fila_catalogo.iloc[0]))
+                                else:
+                                    # Si no está en el catálogo, usar los datos del CSV
+                                    resultados.append((100.0, True, fila))
+                            st.session_state.resultados = resultados
+                            st.session_state.sinonimos = []
+                            st.session_state.tipo_busqueda = "cuenta"
+                        else:
+                            st.session_state.resultados = []
+                            st.session_state.sinonimos = []
+                            st.session_state.tipo_busqueda = "cuenta"
                     else:
                         st.session_state.resultados = []
                         st.session_state.sinonimos = []
