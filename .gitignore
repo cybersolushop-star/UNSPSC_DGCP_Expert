@@ -14,4 +14,6 @@ logs/
 .env
 
 # Archivos temporales de Excel
-~$*.xlsx
+~$*.xlsx"data/catalogo_final_backup.csv" 
+"regenerar_catalogo_final.py" 
+"ORDENAR/" 

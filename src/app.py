@@ -331,55 +331,57 @@ consulta = st.text_input(
     "🔎 Describa el bien o servicio o ingrese un código UNSPSC:",
     value=st.session_state.consulta,
     placeholder="Ej: perro, computadora, 10101502, 25101503...",
-    key="input_busqueda"
+    key="input_busqueda",
+    on_change=None
 )
 
-# Ejecutar búsqueda (CORREGIDO)
+# Forzar actualización cuando cambia el input
+if consulta != st.session_state.get("consulta_anterior", ""):
+    st.session_state.consulta_anterior = consulta
+    st.session_state.consulta = consulta
+
+# Ejecutar búsqueda (SIEMPRE BUSCA CUANDO HAY CONSULTA)
 if consulta:
-    if consulta != st.session_state.get("consulta_anterior", ""):
-        st.session_state.consulta_anterior = consulta
-        st.session_state.consulta = consulta
-        
-        with st.spinner("🔍 Buscando..."):
-            try:
-                df = st.session_state.df_filtrado
-                if df.empty:
-                    df = cargar_catalogo()
-                
-                if df is not None and not df.empty:
-                    if es_busqueda_por_codigo(consulta):
-                        resultados_codigo = buscar_por_codigo(df, consulta)
-                        
-                        if not resultados_codigo.empty:
-                            resultados = []
-                            for _, fila in resultados_codigo.iterrows():
-                                resultados.append((100.0, True, fila))
-                            
-                            st.session_state.resultados = resultados
-                            st.session_state.sinonimos = []
-                            st.session_state.tipo_busqueda = "código"
-                        else:
-                            st.session_state.resultados = []
-                            st.session_state.sinonimos = []
-                            st.session_state.tipo_busqueda = "código"
-                    else:
-                        embeddings = cargar_embeddings()
-                        sinonimos_dict = cargar_sinonimos()
-                        
-                        sinonimos = sinonimos_dict.get(normalizar(consulta), [])
-                        resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
+    with st.spinner("🔍 Buscando..."):
+        try:
+            df = st.session_state.df_filtrado
+            if df.empty:
+                df = cargar_catalogo()
+            
+            if df is not None and not df.empty:
+                if es_busqueda_por_codigo(consulta):
+                    resultados_codigo = buscar_por_codigo(df, consulta)
+                    
+                    if not resultados_codigo.empty:
+                        resultados = []
+                        for _, fila in resultados_codigo.iterrows():
+                            resultados.append((100.0, True, fila))
                         
                         st.session_state.resultados = resultados
-                        st.session_state.sinonimos = sinonimos
-                        st.session_state.tipo_busqueda = "texto"
+                        st.session_state.sinonimos = []
+                        st.session_state.tipo_busqueda = "código"
+                    else:
+                        st.session_state.resultados = []
+                        st.session_state.sinonimos = []
+                        st.session_state.tipo_busqueda = "código"
                 else:
-                    st.warning("No hay datos para buscar")
+                    embeddings = cargar_embeddings()
+                    sinonimos_dict = cargar_sinonimos()
                     
-            except Exception as e:
-                st.error(f"❌ Error en la búsqueda: {e}")
-                import traceback
-                with st.expander("🔍 Ver detalles del error"):
-                    st.code(traceback.format_exc())
+                    sinonimos = sinonimos_dict.get(normalizar(consulta), [])
+                    resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
+                    
+                    st.session_state.resultados = resultados
+                    st.session_state.sinonimos = sinonimos
+                    st.session_state.tipo_busqueda = "texto"
+            else:
+                st.warning("No hay datos para buscar")
+                
+        except Exception as e:
+            st.error(f"❌ Error en la búsqueda: {e}")
+            import traceback
+            with st.expander("🔍 Ver detalles del error"):
+                st.code(traceback.format_exc())
 else:
     # Si no hay consulta, limpiar resultados
     st.session_state.resultados = []
