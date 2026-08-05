@@ -79,6 +79,14 @@ def es_busqueda_por_codigo(consulta):
     
     return False
 
+def es_busqueda_por_cuenta(consulta):
+    """
+    Detecta si la consulta parece ser una cuenta DIGEPRES.
+    Formato: X.X.X.X.XX (ej: 2.3.9.4.01)
+    """
+    consulta_limpia = consulta.strip()
+    return bool(re.match(r'^\d+\.\d+\.\d+\.\d+\.\d+$', consulta_limpia))
+
 # =====================================================
 # CARGAR DATOS
 # =====================================================
@@ -199,7 +207,7 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
                 resultados.append((fuzzy_desc, False, fila))
     
     resultados.sort(key=lambda x: (-x[1], -x[0]))
-    return resultados[:30]
+    return resultados[:200]  # Limitamos a 200 para no sobrecargar la paginación
 
 # =====================================================
 # MOSTRAR RESULTADO
@@ -214,6 +222,8 @@ def mostrar_resultado(score, fila, tipo_busqueda="texto"):
     
     if tipo_busqueda == "código":
         etiqueta = "🎯 Coincidencia por código"
+    elif tipo_busqueda == "cuenta":
+        etiqueta = "💰 Coincidencia por cuenta DIGEPRES"
     else:
         etiqueta = ""
     
@@ -243,6 +253,27 @@ def mostrar_resultado(score, fila, tipo_busqueda="texto"):
                 st.warning("Sin clasificación DIGEPRES asignada")
         
         st.caption(f"📅 Versión: {fila.get('Fecha Versión', 'No disponible')}")
+
+# =====================================================
+# PAGINACIÓN
+# =====================================================
+
+def paginar_resultados(resultados, pagina, items_por_pagina=20):
+    """
+    Divide los resultados en páginas.
+    """
+    total_items = len(resultados)
+    total_paginas = (total_items + items_por_pagina - 1) // items_por_pagina
+    
+    if pagina < 1:
+        pagina = 1
+    if pagina > total_paginas and total_paginas > 0:
+        pagina = total_paginas
+    
+    inicio = (pagina - 1) * items_por_pagina
+    fin = min(inicio + items_por_pagina, total_items)
+    
+    return resultados[inicio:fin], total_paginas, pagina
 
 # =====================================================
 # INTERFAZ PRINCIPAL
@@ -299,10 +330,10 @@ with st.sidebar:
     st.divider()
     if st.button("🧹 Limpiar Búsqueda", use_container_width=True):
         st.session_state.consulta = ""
-        st.session_state.ejecutar_busqueda = False
         st.session_state.resultados = []
         st.session_state.sinonimos = []
         st.session_state.tipo_busqueda = "texto"
+        st.session_state.pagina_actual = 1
         st.rerun()
     
     st.divider()
@@ -323,120 +354,170 @@ if "df_filtrado" not in st.session_state:
     st.session_state.df_filtrado = pd.DataFrame()
 if "tipo_busqueda" not in st.session_state:
     st.session_state.tipo_busqueda = "texto"
-if "ejecutar_busqueda" not in st.session_state:
-    st.session_state.ejecutar_busqueda = False
-
-# Función callback para detectar cambio en la barra de búsqueda
-def on_search_change():
-    st.session_state.ejecutar_busqueda = True
+if "pagina_actual" not in st.session_state:
+    st.session_state.pagina_actual = 1
 
 # Barra de búsqueda
 consulta = st.text_input(
-    "🔎 Describa el bien o servicio o ingrese un código UNSPSC:",
+    "🔎 Describa el bien o servicio, ingrese un código UNSPSC o una cuenta DIGEPRES (ej: 2.3.9.4.01):",
     value=st.session_state.consulta,
-    placeholder="Ej: perro, computadora, 10101502, 25101503...",
-    key="input_busqueda",
-    on_change=on_search_change
+    placeholder="Ej: perro, computadora, 10101502, 25101503, 2.3.9.4.01...",
+    key="input_busqueda"
 )
 
-# Ejecutar búsqueda si se disparó el callback o si hay consulta nueva
-if st.session_state.ejecutar_busqueda or (consulta and consulta != st.session_state.consulta):
+# Ejecutar búsqueda (si hay consulta y es diferente a la anterior)
+if consulta and consulta != st.session_state.consulta:
     st.session_state.consulta = consulta
-    st.session_state.ejecutar_busqueda = False
+    st.session_state.pagina_actual = 1  # Resetear página al hacer nueva búsqueda
     
-    if consulta:
-        with st.spinner("🔍 Buscando..."):
-            try:
-                df = st.session_state.df_filtrado
-                if df.empty:
-                    df = cargar_catalogo()
-                
-                if df is not None and not df.empty:
-                    if es_busqueda_por_codigo(consulta):
-                        resultados_codigo = buscar_por_codigo(df, consulta)
-                        
-                        if not resultados_codigo.empty:
-                            resultados = []
-                            for _, fila in resultados_codigo.iterrows():
-                                resultados.append((100.0, True, fila))
-                            
-                            st.session_state.resultados = resultados
-                            st.session_state.sinonimos = []
-                            st.session_state.tipo_busqueda = "código"
-                        else:
-                            st.session_state.resultados = []
-                            st.session_state.sinonimos = []
-                            st.session_state.tipo_busqueda = "código"
-                    else:
-                        embeddings = cargar_embeddings()
-                        sinonimos_dict = cargar_sinonimos()
-                        
-                        sinonimos = sinonimos_dict.get(normalizar(consulta), [])
-                        resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
-                        
+    with st.spinner("🔍 Buscando..."):
+        try:
+            df = st.session_state.df_filtrado
+            if df.empty:
+                df = cargar_catalogo()
+            
+            if df is not None and not df.empty:
+                if es_busqueda_por_cuenta(consulta):
+                    # Búsqueda por cuenta DIGEPRES
+                    df_cuenta = df[df['cuenta_digepres'].astype(str).str.strip() == consulta.strip()]
+                    if not df_cuenta.empty:
+                        resultados = []
+                        for _, fila in df_cuenta.iterrows():
+                            resultados.append((100.0, True, fila))
                         st.session_state.resultados = resultados
-                        st.session_state.sinonimos = sinonimos
-                        st.session_state.tipo_busqueda = "texto"
+                        st.session_state.sinonimos = []
+                        st.session_state.tipo_busqueda = "cuenta"
+                    else:
+                        st.session_state.resultados = []
+                        st.session_state.sinonimos = []
+                        st.session_state.tipo_busqueda = "cuenta"
+                elif es_busqueda_por_codigo(consulta):
+                    # Búsqueda por código UNSPSC
+                    resultados_codigo = buscar_por_codigo(df, consulta)
+                    if not resultados_codigo.empty:
+                        resultados = []
+                        for _, fila in resultados_codigo.iterrows():
+                            resultados.append((100.0, True, fila))
+                        st.session_state.resultados = resultados
+                        st.session_state.sinonimos = []
+                        st.session_state.tipo_busqueda = "código"
+                    else:
+                        st.session_state.resultados = []
+                        st.session_state.sinonimos = []
+                        st.session_state.tipo_busqueda = "código"
                 else:
-                    st.warning("No hay datos para buscar")
-                    
-            except Exception as e:
-                st.error(f"❌ Error en la búsqueda: {e}")
-                import traceback
-                with st.expander("🔍 Ver detalles del error"):
-                    st.code(traceback.format_exc())
-    else:
-        # Si no hay consulta, limpiar resultados
-        st.session_state.resultados = []
-        st.session_state.sinonimos = []
-        st.session_state.tipo_busqueda = "texto"
+                    # Búsqueda híbrida por texto
+                    embeddings = cargar_embeddings()
+                    sinonimos_dict = cargar_sinonimos()
+                    sinonimos = sinonimos_dict.get(normalizar(consulta), [])
+                    resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
+                    st.session_state.resultados = resultados
+                    st.session_state.sinonimos = sinonimos
+                    st.session_state.tipo_busqueda = "texto"
+            else:
+                st.warning("No hay datos para buscar")
+                
+        except Exception as e:
+            st.error(f"❌ Error en la búsqueda: {e}")
+            import traceback
+            with st.expander("🔍 Ver detalles del error"):
+                st.code(traceback.format_exc())
 
-# Mostrar resultados
+# Si no hay consulta, limpiar resultados
+elif not consulta:
+    st.session_state.resultados = []
+    st.session_state.sinonimos = []
+
+# =====================================================
+# MOSTRAR RESULTADOS CON PAGINACIÓN
+# =====================================================
+
 resultados = st.session_state.resultados
 sinonimos = st.session_state.sinonimos
 tipo_busqueda = st.session_state.get("tipo_busqueda", "texto")
 
 if resultados:
+    # Métricas
     c1, c2, c3 = st.columns(3)
     c1.metric("📊 Resultados", len(resultados))
     
     if tipo_busqueda == "código":
         c2.metric("🔢 Tipo", "Búsqueda por código")
-        c3.metric("⏱️ Tiempo", "< 1s")
+    elif tipo_busqueda == "cuenta":
+        c2.metric("💰 Tipo", "Búsqueda por cuenta DIGEPRES")
     else:
         c2.metric("🔗 Sinónimos", len(sinonimos))
-        c3.metric("⏱️ Tiempo", "< 1s")
+    c3.metric("⏱️ Tiempo", "< 1s")
     
-    # Exportar
-    if st.button("📥 Exportar a Excel"):
-        export_data = []
-        for score, exacto, fila in resultados:
-            export_data.append({
-                "Tipo": "Exacta" if exacto else "Relacionada",
-                "Score": round(score, 2),
-                "Código UNSPSC": fila["Código UNSPSC"],
-                "Descripción": fila["Descripción"],
-                "Segmento": fila["Segmento"],
-                "Familia": fila["Familia"],
-                "Clase": fila["Clase"]
-            })
-        
-        df_export = pd.DataFrame(export_data)
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            df_export.to_excel(writer, index=False)
-        
-        st.download_button(
-            "📥 Descargar Excel",
-            output.getvalue(),
-            file_name=f"resultados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    # Exportar (si hay resultados)
+    col_export, col_empty = st.columns([1, 5])
+    with col_export:
+        if st.button("📥 Exportar a Excel", use_container_width=True):
+            export_data = []
+            for score, exacto, fila in resultados:
+                export_data.append({
+                    "Tipo": "Exacta" if exacto else "Relacionada",
+                    "Score": round(score, 2),
+                    "Código UNSPSC": fila["Código UNSPSC"],
+                    "Descripción": fila["Descripción"],
+                    "Segmento": fila["Segmento"],
+                    "Familia": fila["Familia"],
+                    "Clase": fila["Clase"]
+                })
+            df_export = pd.DataFrame(export_data)
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                df_export.to_excel(writer, index=False)
+            st.download_button(
+                "📥 Descargar Excel",
+                output.getvalue(),
+                file_name=f"resultados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
     
     st.subheader(f"📋 Resultados encontrados: {len(resultados)}")
     
-    exactos = [r for r in resultados if r[1]]
-    relacionados = [r for r in resultados if not r[1]]
+    # =====================================================
+    # PAGINACIÓN
+    # =====================================================
+    items_por_pagina = 20
+    total_items = len(resultados)
+    total_paginas = (total_items + items_por_pagina - 1) // items_por_pagina
+    
+    # Asegurar que la página actual sea válida
+    if st.session_state.pagina_actual < 1:
+        st.session_state.pagina_actual = 1
+    if st.session_state.pagina_actual > total_paginas and total_paginas > 0:
+        st.session_state.pagina_actual = total_paginas
+    
+    # Obtener los resultados de la página actual
+    inicio = (st.session_state.pagina_actual - 1) * items_por_pagina
+    fin = min(inicio + items_por_pagina, total_items)
+    resultados_pagina = resultados[inicio:fin]
+    
+    # Controles de paginación (arriba)
+    if total_paginas > 1:
+        col_prev, col_info, col_next = st.columns([1, 3, 1])
+        
+        with col_prev:
+            if st.button("◀ Anterior", use_container_width=True):
+                if st.session_state.pagina_actual > 1:
+                    st.session_state.pagina_actual -= 1
+                    st.rerun()
+        
+        with col_info:
+            st.markdown(f"<div style='text-align: center;'>Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)</div>", unsafe_allow_html=True)
+        
+        with col_next:
+            if st.button("Siguiente ▶", use_container_width=True):
+                if st.session_state.pagina_actual < total_paginas:
+                    st.session_state.pagina_actual += 1
+                    st.rerun()
+    
+    # Mostrar resultados de la página actual
+    exactos = [r for r in resultados_pagina if r[1]]
+    relacionados = [r for r in resultados_pagina if not r[1]]
     
     if exactos:
         st.markdown("### 🎯 Coincidencias exactas")
@@ -447,6 +528,26 @@ if resultados:
         st.markdown("### 🔍 Resultados relacionados")
         for score, _, fila in relacionados:
             mostrar_resultado(score, fila, tipo_busqueda)
+    
+    # Controles de paginación (abajo)
+    if total_paginas > 1:
+        st.divider()
+        col_prev, col_info, col_next = st.columns([1, 3, 1])
+        
+        with col_prev:
+            if st.button("◀ Anterior", use_container_width=True, key="prev_bottom"):
+                if st.session_state.pagina_actual > 1:
+                    st.session_state.pagina_actual -= 1
+                    st.rerun()
+        
+        with col_info:
+            st.markdown(f"<div style='text-align: center;'>Página {st.session_state.pagina_actual} de {total_paginas}</div>", unsafe_allow_html=True)
+        
+        with col_next:
+            if st.button("Siguiente ▶", use_container_width=True, key="next_bottom"):
+                if st.session_state.pagina_actual < total_paginas:
+                    st.session_state.pagina_actual += 1
+                    st.rerun()
 
 elif consulta:
     st.info("ℹ️ No se encontraron resultados para esta búsqueda.")
