@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Módulo de base de datos para UNSPSC DGCP Buscador
 """
@@ -38,6 +39,7 @@ class DatabaseManager:
         """Carga los datos principales en memoria"""
         self.catalogo = self.cargar_catalogo()
         self.equivalencias_digepres = self.cargar_equivalencias_digepres()
+        print(f"📊 Equivalencias cargadas: {len(self.equivalencias_digepres) if self.equivalencias_digepres is not None else 0}")
     
     def normalizar(self, texto):
         """Normaliza texto: minúsculas, sin tildes, sin espacios extra"""
@@ -70,14 +72,36 @@ class DatabaseManager:
     
     @st.cache_data
     def cargar_equivalencias_digepres(_self):
-        """Carga las equivalencias DIGEPRES"""
+        """Carga las equivalencias DIGEPRES desde catalogo_final.csv"""
         try:
+            csv_path = _self.base_dir / "data" / "catalogo_final.csv"
+            print(f"📂 Buscando archivo: {csv_path}")
+            
+            if csv_path.exists():
+                df = pd.read_csv(csv_path)
+                print(f"✅ Archivo cargado: {len(df)} filas")
+                print(f"📋 Columnas: {list(df.columns)}")
+                
+                # Usar la columna 'Código' como identificador
+                df['codigo_familia'] = df['Código'].astype(str).str.strip()
+                
+                # Las columnas ya se llaman 'cuenta_digepres' y 'descripcion_digepres'
+                if 'cuenta_digepres' in df.columns and 'descripcion_digepres' in df.columns:
+                    # Limpiar datos
+                    df_clean = df[['codigo_familia', 'cuenta_digepres', 'descripcion_digepres']].copy()
+                    df_clean = df_clean.dropna(subset=['codigo_familia', 'cuenta_digepres'])
+                    df_clean = df_clean.drop_duplicates(subset=['codigo_familia'])
+                    print(f"✅ Datos limpios: {len(df_clean)} registros")
+                    return df_clean
+            
+            # Fallback: intentar cargar desde la base de datos
             conn = _self.conectar()
             df = pd.read_sql("SELECT * FROM equivalencias_digepres", conn)
             df['codigo_familia'] = df['codigo_familia'].astype(str)
             return df
-        except:
-            return pd.DataFrame(columns=['codigo_familia', 'familia_unspsc', 'cuenta_digepres', 'descripcion_digepres'])
+        except Exception as e:
+            print(f"❌ Error cargando equivalencias: {e}")
+            return pd.DataFrame(columns=['codigo_familia', 'cuenta_digepres', 'descripcion_digepres'])
     
     @st.cache_data
     def cargar_embeddings(_self):
@@ -121,42 +145,28 @@ class DatabaseManager:
     def obtener_digepres(self, codigo_familia, descripcion_item=None):
         """
         Obtiene la cuenta DIGEPRES para un ítem.
-        Prioriza búsqueda por código UNSPSC en equivalencias_por_item.
+        Busca en equivalencias_digepres (cargado desde CSV).
         """
-        conn = self.conectar()
-        cur = conn.cursor()
-        
-        # 1. BUSCAR POR CÓDIGO FAMILIA (que en este caso es el código UNSPSC)
-        if codigo_familia:
+        # 1. BUSCAR EN equivalencias_digepres (cargado desde CSV)
+        if codigo_familia and self.equivalencias_digepres is not None and not self.equivalencias_digepres.empty:
             try:
-                # Buscar en equivalencias_por_item (por código UNSPSC)
-                cur.execute("""
-                    SELECT cuenta_digepres, descripcion_digepres 
-                    FROM equivalencias_por_item 
-                    WHERE codigo_unspsc = ?
-                """, (str(codigo_familia).strip(),))
-                resultado = cur.fetchone()
-                if resultado:
-                    return resultado[0], resultado[1], 'item', 1.0
-            except:
-                pass
-            
-            try:
-                # Si no encuentra, buscar en equivalencias_digepres (por familia)
-                cur.execute("""
-                    SELECT cuenta_digepres, descripcion_digepres 
-                    FROM equivalencias_digepres 
-                    WHERE codigo_familia = ?
-                """, (str(codigo_familia).strip(),))
-                resultado = cur.fetchone()
-                if resultado:
-                    return resultado[0], resultado[1], 'familia', 1.0
-            except:
-                pass
+                # Buscar por código (que es el Código UNSPSC)
+                fila = self.equivalencias_digepres[
+                    self.equivalencias_digepres['codigo_familia'].astype(str).str.strip() == str(codigo_familia).strip()
+                ]
+                if not fila.empty:
+                    cuenta = fila.iloc[0]['cuenta_digepres']
+                    desc = fila.iloc[0]['descripcion_digepres']
+                    if cuenta and len(str(cuenta)) > 0:
+                        return cuenta, desc, 'familia', 1.0
+            except Exception as e:
+                print(f"⚠️ Error buscando en equivalencias: {e}")
         
-        # 2. BUSCAR POR DESCRIPCIÓN DEL ÍTEM (si se proporcionó)
+        # 2. SI NO ENCUENTRA, BUSCAR POR DESCRIPCIÓN
         if descripcion_item:
             try:
+                conn = self.conectar()
+                cur = conn.cursor()
                 cur.execute("""
                     SELECT "Código UNSPSC" FROM catalogo 
                     WHERE "Descripción" = ? 
@@ -165,16 +175,14 @@ class DatabaseManager:
                 resultado = cur.fetchone()
                 if resultado:
                     codigo_unspsc = resultado[0]
-                    cur.execute("""
-                        SELECT cuenta_digepres, descripcion_digepres 
-                        FROM equivalencias_por_item 
-                        WHERE codigo_unspsc = ?
-                    """, (codigo_unspsc,))
-                    item_result = cur.fetchone()
-                    if item_result:
-                        return item_result[0], item_result[1], 'item', 1.0
-            except:
-                pass
+                    if self.equivalencias_digepres is not None and not self.equivalencias_digepres.empty:
+                        fila = self.equivalencias_digepres[
+                            self.equivalencias_digepres['codigo_familia'].astype(str).str.strip() == str(codigo_unspsc).strip()
+                        ]
+                        if not fila.empty:
+                            return fila.iloc[0]['cuenta_digepres'], fila.iloc[0]['descripcion_digepres'], 'item', 1.0
+            except Exception as e:
+                print(f"⚠️ Error buscando por descripción: {e}")
         
         return None, None, 'ninguna', 0.0
     

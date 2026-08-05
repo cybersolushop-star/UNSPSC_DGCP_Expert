@@ -1,42 +1,27 @@
-import streamlit as st
-import sqlite3
-import pandas as pd
-import unicodedata
-import re
-import time
+"""
+Aplicación principal UNSPSC DGCP Buscador - Versión Optimizada
+"""
 
-from io import BytesIO
-from datetime import datetime
+import sys
+import os
 from pathlib import Path
 
-from rapidfuzz import fuzz
-from sentence_transformers import SentenceTransformer, util
+# Agregar el directorio actual al path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# =====================================================
-# CONFIG
-# =====================================================
+import streamlit as st
+import pandas as pd
+import sqlite3
+import unicodedata
+import re
+import torch
+from datetime import datetime
+from io import BytesIO
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DB_FILE = BASE_DIR / "db" / "DGCP_UNSPSC.db"
+# Importar DatabaseManager desde database
+from database import DatabaseManager
 
-SEMANTIC_WEIGHT = 0.20
-FUZZY_WEIGHT = 0.80
-MIN_SCORE = 70
-
-# Pesos internos del fuzzy: la Descripción pesa mucho más que
-# Segmento/Familia/Clase/Definición (contexto), para que categorías
-# generales no le ganen al ítem exacto.
-PESO_DESCRIPCION = 0.75
-PESO_CONTEXTO = 0.25
-
-# Umbral de fuzzy sobre la Descripción para considerar "exacto" aunque
-# no haya coincidencia literal de palabra completa (respaldo).
-UMBRAL_FUZZY_EXACTO = 95
-
-# =====================================================
-# PAGE CONFIG
-# =====================================================
-
+# Configuración de la página
 st.set_page_config(
     page_title="UNSPSC DGCP BUSCADOR",
     page_icon="🔎",
@@ -44,597 +29,414 @@ st.set_page_config(
 )
 
 # =====================================================
-# NORMALIZACION
+# FUNCIONES DE NORMALIZACIÓN
 # =====================================================
 
 def normalizar(texto):
-    texto = str(texto)
-    texto = texto.lower().strip()
-    texto = "".join(
-        c for c in unicodedata.normalize("NFD", texto)
-        if unicodedata.category(c) != "Mn"
-    )
+    texto = str(texto).lower().strip()
+    texto = "".join(c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn")
     texto = re.sub(r"\s+", " ", texto)
     return texto
 
 # =====================================================
-# MODELO IA
+# BÚSQUEDA POR CÓDIGO
 # =====================================================
 
-@st.cache_resource
-def cargar_modelo():
-    return SentenceTransformer(
-        "paraphrase-multilingual-MiniLM-L12-v2"
-    )
+def buscar_por_codigo(df, consulta):
+    """
+    Busca ítems por código UNSPSC.
+    Soporta búsqueda exacta y parcial.
+    """
+    consulta_limpia = re.sub(r"\s+", "", consulta).strip()
+    
+    # Intentar coincidencia exacta
+    resultado_exacto = df[df["Código UNSPSC"].astype(str) == consulta_limpia]
+    if not resultado_exacto.empty:
+        return resultado_exacto
+    
+    # Intentar coincidencia parcial (códigos que comiencen con el número)
+    resultado_parcial = df[df["Código UNSPSC"].astype(str).str.startswith(consulta_limpia)]
+    if not resultado_parcial.empty:
+        return resultado_parcial
+    
+    # Intentar coincidencia que contenga el número en cualquier parte
+    resultado_contiene = df[df["Código UNSPSC"].astype(str).str.contains(consulta_limpia, na=False)]
+    if not resultado_contiene.empty:
+        return resultado_contiene
+    
+    return pd.DataFrame()
+
+def es_busqueda_por_codigo(consulta):
+    """
+    Detecta si la consulta parece ser un código UNSPSC.
+    """
+    consulta_limpia = re.sub(r"\s+", "", consulta).strip()
+    
+    if re.match(r"^\d{8,}$", consulta_limpia):
+        return True
+    if re.match(r"^[\d\-]+$", consulta_limpia):
+        return True
+    
+    return False
 
 # =====================================================
-# CATALOGO
+# CARGAR DATOS
 # =====================================================
 
 @st.cache_data
 def cargar_catalogo():
-    with sqlite3.connect(DB_FILE) as conn:
-        df = pd.read_sql("SELECT * FROM catalogo", conn)
-
-    # OJO: no usar reset_index aquí. Los embeddings en embeddings.pt
-    # fueron generados en el mismo orden que "SELECT * FROM catalogo"
-    # (ver generar_embeddings.py). drop_duplicates conserva las
-    # etiquetas de índice originales, así que la posición sigue
-    # coincidiendo con el vector correspondiente en embeddings.pt.
-    df = df.drop_duplicates(subset=["Código UNSPSC"])
-
-    # Descripción normalizada por separado: es el campo más importante
-    # para decidir si una fila es "el ítem exacto".
-    df["descripcion_norm"] = (
-        df["Descripción"]
-        .fillna("")
-        .astype(str)
-        .apply(normalizar)
-    )
-
-    # Contexto = todo lo demás. Sirve de apoyo, pero pesa menos.
-    df["contexto_norm"] = (
-        df["Definición"].fillna("") + " " +
-        df["Segmento"].fillna("") + " " +
-        df["Familia"].fillna("") + " " +
-        df["Clase"].fillna("")
-    )
-
-    df["contexto_norm"] = (
-        df["contexto_norm"]
-        .astype(str)
-        .apply(normalizar)
-    )
-
+    conn = sqlite3.connect("db/DGCP_UNSPSC.db")
+    df = pd.read_sql("SELECT * FROM catalogo", conn)
+    conn.close()
     return df
 
-# =====================================================
-# SINONIMOS
-# =====================================================
+@st.cache_data
+def cargar_embeddings():
+    """Carga embeddings desde archivo .pt"""
+    data = torch.load("db/embeddings.pt", map_location="cpu")
+    
+    if isinstance(data, dict):
+        if 'embeddings' in data:
+            return data['embeddings']
+        else:
+            for key, value in data.items():
+                if isinstance(value, torch.Tensor):
+                    return value
+    
+    if isinstance(data, torch.Tensor):
+        return data
+    
+    raise ValueError(f"Formato de embeddings no soportado: {type(data)}")
+
+@st.cache_resource
+def cargar_modelo():
+    """Carga el modelo de embeddings (cacheado en memoria para no recargar cada vez)"""
+    from sentence_transformers import SentenceTransformer
+    return SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
 @st.cache_data
 def cargar_sinonimos():
-    """
-    Construye un diccionario BIDIRECCIONAL de términos relacionados.
-
-    La tabla 'sinonimos' guarda filas (termino, sinonimo, capa), por
-    ejemplo ("automovil", "carro", 3). Si sólo se indexa por 'termino'
-    (como antes), buscar "carro" nunca encuentra nada, porque "carro"
-    jamás es una llave del diccionario, sólo un valor.
-
-    Aquí se agregan ambas direcciones: termino -> sinonimo y
-    sinonimo -> termino, para que buscar por cualquiera de los dos
-    términos encuentre al otro (y a sus hermanos).
-    """
     try:
-        with sqlite3.connect(DB_FILE) as conn:
-            df = pd.read_sql(
-                "SELECT termino, sinonimo, capa FROM sinonimos",
-                conn
-            )
-    except Exception:
-        try:
-            with sqlite3.connect(DB_FILE) as conn:
-                df = pd.read_sql(
-                    "SELECT termino, sinonimo FROM sinonimos",
-                    conn
-                )
-            df["capa"] = 1
-        except Exception:
-            return {}
-
-    diccionario = {}
-
-    def agregar(clave, valor, capa):
-        clave = normalizar(clave)
-        valor = normalizar(valor)
-
-        if not clave or not valor or clave == valor:
-            return
-
-        lista = diccionario.setdefault(clave, [])
-
-        if not any(v == valor for v, _ in lista):
-            lista.append((valor, capa))
-
-    for _, fila in df.iterrows():
-        termino = fila["termino"]
-        sinonimo = fila["sinonimo"]
-
-        try:
-            capa = int(fila["capa"]) if pd.notna(fila["capa"]) else 1
-        except Exception:
-            capa = 1
-
-        agregar(termino, sinonimo, capa)
-        agregar(sinonimo, termino, capa)
-
-    # Dentro de cada llave, ordenar por capa (menor capa = relación
-    # más fuerte / oficial primero).
-    for clave in diccionario:
-        diccionario[clave].sort(key=lambda x: x[1])
-
-    return diccionario
+        conn = sqlite3.connect("db/DGCP_UNSPSC.db")
+        df = pd.read_sql("SELECT termino, sinonimo FROM sinonimos", conn)
+        conn.close()
+        dic = {}
+        for _, row in df.iterrows():
+            t = normalizar(row["termino"])
+            s = normalizar(row["sinonimo"])
+            if t not in dic:
+                dic[t] = []
+            if s not in dic[t]:
+                dic[t].append(s)
+        return dic
+    except:
+        return {}
 
 # =====================================================
-# EMBEDDINGS
+# BUSCADOR HÍBRIDO OPTIMIZADO
 # =====================================================
 
-import torch
-
-@st.cache_resource
-def cargar_embeddings():
-
-    archivo = BASE_DIR / "db" / "embeddings.pt"
-
-    return torch.load(
-        archivo,
-        map_location="cpu"
-    )
-
-# =====================================================
-# RAPIDFUZZ
-# =====================================================
-
-def fuzzy_score(a, b):
-    if not a or not b:
-        return 0
-    s1 = fuzz.token_set_ratio(a, b)
-    s2 = fuzz.token_sort_ratio(a, b)
-    s3 = fuzz.partial_ratio(a, b)
-    return max(s1, s2, s3)
-
-# =====================================================
-# COINCIDENCIA EXACTA
-# =====================================================
-
-def coincide_termino(termino, texto):
-    """
-    True si 'termino' aparece como palabra/frase completa dentro de
-    'texto' (contempla plurales simples: carro/carros,
-    automovil/automoviles).
-    """
-    if not termino or not texto:
-        return False
-
-    variantes = {termino, termino + "s", termino + "es"}
-
-    for variante in variantes:
-        patron = r"(?<!\w)" + re.escape(variante) + r"(?!\w)"
-        if re.search(patron, texto):
-            return True
-
-    return False
-
-
-def es_coincidencia_exacta(terminos, descripcion_norm, fuzzy_desc_max):
-    for termino in terminos:
-        termino = termino.strip()
-        if coincide_termino(termino, descripcion_norm):
-            return True
-
-    # Respaldo: si la Descripción es casi idéntica al término buscado
-    # (diferencias mínimas de redacción), también se considera exacta.
-    return fuzzy_desc_max >= UMBRAL_FUZZY_EXACTO
-
-# =====================================================
-# LOG
-# =====================================================
-
-def registrar_busqueda(consulta, cantidad):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS consultas(
-                    id INTEGER PRIMARY KEY,
-                    fecha TEXT,
-                    consulta TEXT,
-                    resultados INTEGER
-                )
-            """)
-
-            conn.execute("""
-                INSERT INTO consultas
-                (fecha, consulta, resultados)
-                VALUES (?, ?, ?)
-            """, (
-                datetime.now().isoformat(),
-                consulta,
-                cantidad
-            ))
-
-            conn.commit()
-
-    except Exception:
-        pass
-
-# =====================================================
-# EXPORTAR EXCEL
-# =====================================================
-
-def generar_excel(df):
-    salida = BytesIO()
-
-    with pd.ExcelWriter(
-        salida,
-        engine="openpyxl"
-    ) as writer:
-        df.to_excel(
-            writer,
-            index=False
-        )
-
-    return salida.getvalue()
-
-# =====================================================
-# BUSQUEDA HIBRIDA
-# =====================================================
-
-def buscar_hibrido(
-    df,
-    embeddings_catalogo,
-    consulta,
-    terminos_relacionados
-):
-
+def buscar_hibrido(df, embeddings, consulta, sinonimos):
+    from rapidfuzz import fuzz
+    from sentence_transformers import util
+    import torch
+    
     modelo = cargar_modelo()
-
+    
     consulta_norm = normalizar(consulta)
-
-    terminos = [consulta_norm]
-    for t in terminos_relacionados:
-        if t not in terminos:
-            terminos.append(t)
-
-    mejor_similitud = None
-
-    for termino in terminos:
-
-        emb = modelo.encode(
-            termino,
-            convert_to_tensor=True,
-            show_progress_bar=False
-        )
-
-        similitud = util.cos_sim(
-            emb,
-            embeddings_catalogo
-        )[0]
-
-        if mejor_similitud is None:
-            mejor_similitud = similitud
-        else:
-            mejor_similitud = mejor_similitud.maximum(
-                similitud
-            )
-
-    similitudes = (
-        mejor_similitud
-        .cpu()
-        .numpy()
-    )
-
+    terminos = [consulta_norm] + sinonimos
+    
+    emb_consulta = modelo.encode(consulta_norm, convert_to_tensor=True, show_progress_bar=False)
+    
+    if not isinstance(embeddings, torch.Tensor):
+        embeddings = torch.tensor(embeddings)
+    
+    similitudes = util.cos_sim(emb_consulta, embeddings)[0]
+    
+    top_k = min(200, len(similitudes))
+    top_scores, top_indices = torch.topk(similitudes, top_k)
+    
+    top_indices_list = top_indices.cpu().numpy().tolist()
+    top_scores_list = top_scores.cpu().numpy().tolist()
+    
     resultados = []
-
-    for idx, fila in df.iterrows():
-
-        descripcion_norm = fila["descripcion_norm"]
-        contexto_norm = fila["contexto_norm"]
-
+    for idx, sem_score in zip(top_indices_list, top_scores_list):
+        fila = df.iloc[idx]
+        desc = normalizar(fila["Descripción"])
+        contexto = normalizar(f"{fila['Segmento']} {fila['Familia']} {fila['Clase']}")
+        
         fuzzy_desc = 0
-        fuzzy_contexto = 0
+        fuzzy_ctx = 0
+        for t in terminos:
+            fs = fuzz.token_set_ratio(t, desc)
+            if fs > fuzzy_desc:
+                fuzzy_desc = fs
+            fc = fuzz.token_set_ratio(t, contexto)
+            if fc > fuzzy_ctx:
+                fuzzy_ctx = fc
+        
+        fuzzy = (fuzzy_desc * 0.7) + (fuzzy_ctx * 0.3)
+        semantico = float(sem_score) * 100
+        score = (semantico * 0.3) + (fuzzy * 0.7)
+        
+        exacto = any(t in desc for t in terminos)
+        
+        if score >= 55 or exacto:
+            resultados.append((score, exacto, fila))
+    
+    if len(resultados) < 10:
+        top_indices_set = set(top_indices_list)
+        for idx, fila in df.iterrows():
+            if idx in top_indices_set:
+                continue
+            desc = normalizar(fila["Descripción"])
+            fuzzy_desc = 0
+            for t in terminos:
+                fs = fuzz.token_set_ratio(t, desc)
+                if fs > fuzzy_desc:
+                    fuzzy_desc = fs
+            if fuzzy_desc > 60:
+                resultados.append((fuzzy_desc, False, fila))
+    
+    resultados.sort(key=lambda x: (-x[1], -x[0]))
+    return resultados[:30]
 
-        for termino in terminos:
-            fuzzy_desc = max(
-                fuzzy_desc,
-                fuzzy_score(termino, descripcion_norm)
-            )
-            fuzzy_contexto = max(
-                fuzzy_contexto,
-                fuzzy_score(termino, contexto_norm)
-            )
+# =====================================================
+# MOSTRAR RESULTADO
+# =====================================================
 
-        fuzzy = (
-            (PESO_DESCRIPCION * fuzzy_desc) +
-            (PESO_CONTEXTO * fuzzy_contexto)
-        )
-
-        semantico = float(
-            similitudes[idx]
-        ) * 100
-
-        score = (
-            SEMANTIC_WEIGHT * semantico +
-            FUZZY_WEIGHT * fuzzy
-        )
-
-        exacto = es_coincidencia_exacta(
-            terminos,
-            descripcion_norm,
-            fuzzy_desc
-        )
-
-        if score >= MIN_SCORE or exacto:
-            resultados.append(
-                (score, exacto, fila)
-            )
-
-    # Orden: primero coincidencias exactas, luego por score descendente.
-    resultados.sort(
-        key=lambda r: (not r[1], -r[0])
+def mostrar_resultado(score, fila, tipo_busqueda="texto"):
+    db = DatabaseManager()
+    cuenta, descripcion, fuente, confianza = db.obtener_digepres(
+        fila["Código Familia"],
+        descripcion_item=fila["Descripción"]
     )
-
-    return resultados[:10]
-
-
-# =====================================================
-# TITULO
-# =====================================================
-
-st.title("🔎 UNSPSC DGCP Expert")
-st.write("Catálogo Oficial de Bienes y Servicios DGCP")
-
-# =====================================================
-# CARGA DATOS
-# =====================================================
-
-catalogo = cargar_catalogo()
-dic_sinonimos = cargar_sinonimos()
-
-with st.spinner(
-    "Cargando embeddings..."
-):
-
-    embeddings_catalogo = (
-        cargar_embeddings()
-    )
-
-# =====================================================
-# INICIALIZAR SESSION STATE
-# =====================================================
-
-# Inicializar estado de limpieza
-if "limpiar" not in st.session_state:
-    st.session_state.limpiar = False
-
-# =====================================================
-# FILTROS
-# =====================================================
-
-st.sidebar.header("Filtros")
-
-segmentos = sorted(
-    catalogo["Segmento"]
-    .dropna()
-    .unique()
-)
-
-# Si se solicitó limpiar, usar valores por defecto
-if st.session_state.limpiar:
-    valor_segmento = "Todos"
-    valor_familia = "Todas"
-    valor_clase = "Todas"
-else:
-    valor_segmento = st.session_state.get("segmento", "Todos")
-    valor_familia = st.session_state.get("familia", "Todas")
-    valor_clase = st.session_state.get("clase", "Todas")
-
-segmento = st.sidebar.selectbox(
-    "Segmento",
-    ["Todos"] + list(segmentos),
-    index=0 if valor_segmento == "Todos" else list(segmentos).index(valor_segmento) if valor_segmento in segmentos else 0,
-    key="segmento_select"
-)
-
-if segmento != "Todos":
-    catalogo_filtrado = catalogo[catalogo["Segmento"] == segmento]
-else:
-    catalogo_filtrado = catalogo
-
-familias = sorted(
-    catalogo_filtrado["Familia"]
-    .dropna()
-    .unique()
-)
-
-familia = st.sidebar.selectbox(
-    "Familia",
-    ["Todas"] + list(familias),
-    index=0 if valor_familia == "Todas" else list(familias).index(valor_familia) if valor_familia in familias else 0,
-    key="familia_select"
-)
-
-if familia != "Todas":
-    catalogo_filtrado = catalogo_filtrado[catalogo_filtrado["Familia"] == familia]
-
-clases = sorted(
-    catalogo_filtrado["Clase"]
-    .dropna()
-    .unique()
-)
-
-clase = st.sidebar.selectbox(
-    "Clase",
-    ["Todas"] + list(clases),
-    index=0 if valor_clase == "Todas" else list(clases).index(valor_clase) if valor_clase in clases else 0,
-    key="clase_select"
-)
-
-if clase != "Todas":
-    catalogo_filtrado = catalogo_filtrado[catalogo_filtrado["Clase"] == clase]
-
-# Guardar valores actuales en session_state
-st.session_state.segmento = segmento
-st.session_state.familia = familia
-st.session_state.clase = clase
+    
+    if tipo_busqueda == "código":
+        etiqueta = "🎯 Coincidencia por código"
+    else:
+        etiqueta = ""
+    
+    titulo = f"{score:.0f}% | {fila['Código UNSPSC']} | {fila['Descripción']}"
+    if etiqueta:
+        titulo = f"{etiqueta} - {titulo}"
+    
+    with st.expander(titulo):
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.write("**📋 Código:**", fila["Código UNSPSC"])
+            st.write("**📝 Descripción:**", fila["Descripción"])
+            if fila.get("Definición") and str(fila["Definición"]) != "nan":
+                st.write("**📖 Definición:**", fila["Definición"])
+            st.write("**📂 Segmento:**", fila["Segmento"])
+            st.write("**📁 Familia:**", fila["Familia"])
+            st.write("**📄 Clase:**", fila["Clase"])
+        
+        with col2:
+            st.write("**💰 Clasificación DIGEPRES**")
+            if cuenta:
+                st.success(f"**Cuenta:** {cuenta}")
+                st.write(f"**Descripción:** {descripcion}")
+                st.caption(f"🔍 Fuente: {fuente} | Confianza: {confianza:.0%}")
+            else:
+                st.warning("Sin clasificación DIGEPRES asignada")
+        
+        st.caption(f"📅 Versión: {fila.get('Fecha Versión', 'No disponible')}")
 
 # =====================================================
-# BOTÓN LIMPIAR BÚSQUEDA
+# INTERFAZ PRINCIPAL
 # =====================================================
 
-if st.sidebar.button("🧹 Limpiar Búsqueda", use_container_width=True):
-    # Activar bandera de limpieza
-    st.session_state.limpiar = True
-    # Limpiar consulta
+st.title("🔎 BUSCADOR UNSPSC DGCP")
+st.caption("Catálogo Oficial de Bienes y Servicios DGCP")
+st.markdown("*por Rudy Pérez*")
+
+# =====================================================
+# SIDEBAR - FILTROS
+# =====================================================
+
+with st.sidebar:
+    st.header("📂 Filtros")
+    
+    try:
+        df_catalogo = cargar_catalogo()
+        
+        if df_catalogo is not None and not df_catalogo.empty:
+            segmentos = sorted(df_catalogo["Segmento"].dropna().unique())
+            segmento = st.selectbox("Segmento", ["Todos"] + list(segmentos))
+            
+            if segmento != "Todos":
+                df_filtrado = df_catalogo[df_catalogo["Segmento"] == segmento]
+            else:
+                df_filtrado = df_catalogo
+            
+            familias = sorted(df_filtrado["Familia"].dropna().unique())
+            familia = st.selectbox("Familia", ["Todas"] + list(familias))
+            
+            if familia != "Todas":
+                df_filtrado = df_filtrado[df_filtrado["Familia"] == familia]
+            
+            clases = sorted(df_filtrado["Clase"].dropna().unique())
+            clase = st.selectbox("Clase", ["Todas"] + list(clases))
+            
+            if clase != "Todas":
+                df_filtrado = df_filtrado[df_filtrado["Clase"] == clase]
+            
+            st.caption(f"📊 {len(df_filtrado)} ítems disponibles")
+            st.session_state.df_filtrado = df_filtrado
+        else:
+            st.warning("No se pudo cargar el catálogo")
+            st.session_state.df_filtrado = pd.DataFrame()
+            
+    except Exception as e:
+        st.error(f"Error cargando filtros: {e}")
+        st.session_state.df_filtrado = pd.DataFrame()
+    
+    st.divider()
+    st.caption("🔎 UNSPSC DGCP Expert v2.0")
+
+# =====================================================
+# ÁREA PRINCIPAL - BÚSQUEDA
+# =====================================================
+
+# Inicializar estado
+if "consulta" not in st.session_state:
     st.session_state.consulta = ""
-    # Forzar recarga
-    st.rerun()
+if "resultados" not in st.session_state:
+    st.session_state.resultados = []
+if "sinonimos" not in st.session_state:
+    st.session_state.sinonimos = []
+if "df_filtrado" not in st.session_state:
+    st.session_state.df_filtrado = pd.DataFrame()
+if "tipo_busqueda" not in st.session_state:
+    st.session_state.tipo_busqueda = "texto"
 
-# =====================================================
-# BUSQUEDA
-# =====================================================
-
-# Si se limpió, desactivar la bandera después de la recarga
-if st.session_state.limpiar:
-    st.session_state.limpiar = False
-
-# Usar session_state para el campo de búsqueda
-consulta_val = st.session_state.get("consulta", "")
+# Barra de búsqueda
 consulta = st.text_input(
-    "Describa el bien o servicio:",
-    value=consulta_val,
-    key="consulta_input"
+    "🔎 Describa el bien o servicio o ingrese un código UNSPSC:",
+    value=st.session_state.consulta,
+    placeholder="Ej: perro, computadora, 10101502, 25101503...",
+    key="input_busqueda"
 )
 
-# Actualizar session_state cuando cambia la consulta
-if consulta != st.session_state.get("consulta", ""):
+# Botón Limpiar
+col_boton = st.columns([1, 5])
+with col_boton[0]:
+    if st.button("🧹 Limpiar", use_container_width=True):
+        st.session_state.consulta = ""
+        st.session_state.resultados = []
+        st.session_state.sinonimos = []
+        st.session_state.tipo_busqueda = "texto"
+        st.rerun()
+
+# Ejecutar búsqueda (solo si hay consulta)
+if consulta and consulta != st.session_state.consulta:
     st.session_state.consulta = consulta
+    
+    with st.spinner("🔍 Buscando..."):
+        try:
+            df = st.session_state.df_filtrado
+            if df.empty:
+                df = cargar_catalogo()
+            
+            if df is not None and not df.empty:
+                if es_busqueda_por_codigo(consulta):
+                    resultados_codigo = buscar_por_codigo(df, consulta)
+                    
+                    if not resultados_codigo.empty:
+                        resultados = []
+                        for _, fila in resultados_codigo.iterrows():
+                            resultados.append((100.0, True, fila))
+                        
+                        st.session_state.resultados = resultados
+                        st.session_state.sinonimos = []
+                        st.session_state.tipo_busqueda = "código"
+                    else:
+                        st.session_state.resultados = []
+                        st.session_state.sinonimos = []
+                        st.session_state.tipo_busqueda = "código"
+                else:
+                    embeddings = cargar_embeddings()
+                    sinonimos_dict = cargar_sinonimos()
+                    
+                    sinonimos = sinonimos_dict.get(normalizar(consulta), [])
+                    resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
+                    
+                    st.session_state.resultados = resultados
+                    st.session_state.sinonimos = sinonimos
+                    st.session_state.tipo_busqueda = "texto"
+            else:
+                st.warning("No hay datos para buscar")
+                
+        except Exception as e:
+            st.error(f"❌ Error en la búsqueda: {e}")
+            import traceback
+            with st.expander("🔍 Ver detalles del error"):
+                st.code(traceback.format_exc())
 
-if consulta:
+# Si la consulta está vacía, limpiar resultados visuales
+elif not consulta:
+    st.session_state.resultados = []
+    st.session_state.sinonimos = []
 
-    inicio = time.time()
+# Mostrar resultados
+resultados = st.session_state.resultados
+sinonimos = st.session_state.sinonimos
+tipo_busqueda = st.session_state.get("tipo_busqueda", "texto")
 
-    consulta_norm = normalizar(
-        consulta
-    )
-
-    relacionados_info = dic_sinonimos.get(
-        consulta_norm,
-        []
-    )
-
-    sinonimos = [t for t, _ in relacionados_info]
-
-    if sinonimos:
-        st.info(
-            "Términos relacionados detectados: " +
-            ", ".join(sinonimos)
-        )
-
-    resultados = buscar_hibrido(
-        catalogo_filtrado,
-        embeddings_catalogo,
-        consulta,
-        sinonimos
-    )
-
-    registrar_busqueda(
-        consulta,
-        len(resultados)
-    )
-
-    tiempo = round(
-        time.time() - inicio,
-        2
-    )
-
+if resultados:
     c1, c2, c3 = st.columns(3)
-
-    c1.metric(
-        "Resultados",
-        len(resultados)
-    )
-
-    c2.metric(
-        "Sinónimos",
-        len(sinonimos)
-    )
-
-    c3.metric(
-        "Tiempo (s)",
-        tiempo
-    )
-
-    exportar = []
-
-    for score, exacto, fila in resultados:
-        exportar.append({
-            "Tipo": "Exacta" if exacto else "Relacionada",
-            "Score": round(score, 2),
-            "Código UNSPSC": fila["Código UNSPSC"],
-            "Descripción": fila["Descripción"],
-            "Definición": fila["Definición"],
-            "Segmento": fila["Segmento"],
-            "Familia": fila["Familia"],
-            "Clase": fila["Clase"]
-        })
-
-    df_exportar = pd.DataFrame(
-        exportar
-    )
-
-    if not df_exportar.empty:
-
-        archivo = generar_excel(
-            df_exportar
-        )
-
+    c1.metric("📊 Resultados", len(resultados))
+    
+    if tipo_busqueda == "código":
+        c2.metric("🔢 Tipo", "Búsqueda por código")
+        c3.metric("⏱️ Tiempo", "< 1s")
+    else:
+        c2.metric("🔗 Sinónimos", len(sinonimos))
+        c3.metric("⏱️ Tiempo", "< 1s")
+    
+    # Exportar
+    if st.button("📥 Exportar a Excel"):
+        export_data = []
+        for score, exacto, fila in resultados:
+            export_data.append({
+                "Tipo": "Exacta" if exacto else "Relacionada",
+                "Score": round(score, 2),
+                "Código UNSPSC": fila["Código UNSPSC"],
+                "Descripción": fila["Descripción"],
+                "Segmento": fila["Segmento"],
+                "Familia": fila["Familia"],
+                "Clase": fila["Clase"]
+            })
+        
+        df_export = pd.DataFrame(export_data)
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df_export.to_excel(writer, index=False)
+        
         st.download_button(
-            "📥 Exportar Excel",
-            archivo,
-            file_name="resultados_unspsc.xlsx",
+            "📥 Descargar Excel",
+            output.getvalue(),
+            file_name=f"resultados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-    st.subheader(
-        f"Resultados encontrados: {len(resultados)}"
-    )
-
-    if not resultados:
-        st.warning("No se encontraron resultados para esta búsqueda.")
-
+    
+    st.subheader(f"📋 Resultados encontrados: {len(resultados)}")
+    
     exactos = [r for r in resultados if r[1]]
-    relacionados_res = [r for r in resultados if not r[1]]
-
-    def mostrar_resultado(score, fila):
-        with st.expander(
-            f"{score:.0f}% | {fila['Código UNSPSC']} | {fila['Descripción']}"
-        ):
-            st.write("**Código:**", fila["Código UNSPSC"])
-            st.write("**Descripción:**", fila["Descripción"])
-            st.write("**Definición:**", fila["Definición"])
-            st.write("**Segmento:**", fila["Segmento"])
-            st.write("**Familia:**", fila["Familia"])
-            st.write("**Clase:**", fila["Clase"])
-            st.write("**Versión:**", fila["Fecha Versión"])
-
+    relacionados = [r for r in resultados if not r[1]]
+    
     if exactos:
-        st.markdown("### 🎯 Coincidencia exacta")
-        for score, exacto, fila in exactos:
-            mostrar_resultado(score, fila)
-
-    if relacionados_res:
+        st.markdown("### 🎯 Coincidencias exactas")
+        for score, _, fila in exactos:
+            mostrar_resultado(score, fila, tipo_busqueda)
+    
+    if relacionados:
         st.markdown("### 🔍 Resultados relacionados")
-        for score, exacto, fila in relacionados_res:
-            mostrar_resultado(score, fila)
+        for score, _, fila in relacionados:
+            mostrar_resultado(score, fila, tipo_busqueda)
+
+elif consulta:
+    st.info("ℹ️ No se encontraron resultados para esta búsqueda.")
+    st.caption("Sugerencias: prueba con sinónimos o términos más generales.")
