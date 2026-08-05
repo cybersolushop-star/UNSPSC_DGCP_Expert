@@ -439,4 +439,4 @@ if resultados:
 
 elif consulta:
     st.info("ℹ️ No se encontraron resultados para esta búsqueda.")
-    st.caption("Sugerencias: prueba con sinónimos o términos más generales.")
+    st.caption("Sugerencias: prueba con sinónimos o términos más generales.")"" 
