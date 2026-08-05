@@ -294,12 +294,12 @@ with st.sidebar:
         st.session_state.df_filtrado = pd.DataFrame()
     
     # =====================================================
-    # BOTÓN LIMPIAR (NUEVO EN SIDEBAR)
+    # BOTÓN LIMPIAR
     # =====================================================
     st.divider()
     if st.button("🧹 Limpiar Búsqueda", use_container_width=True):
         st.session_state.consulta = ""
-        st.session_state.consulta_anterior = ""
+        st.session_state.ejecutar_busqueda = False
         st.session_state.resultados = []
         st.session_state.sinonimos = []
         st.session_state.tipo_busqueda = "texto"
@@ -323,70 +323,73 @@ if "df_filtrado" not in st.session_state:
     st.session_state.df_filtrado = pd.DataFrame()
 if "tipo_busqueda" not in st.session_state:
     st.session_state.tipo_busqueda = "texto"
-if "consulta_anterior" not in st.session_state:
-    st.session_state.consulta_anterior = ""
+if "ejecutar_busqueda" not in st.session_state:
+    st.session_state.ejecutar_busqueda = False
 
-# Barra de búsqueda (SIN BOTÓN LIMPIAR)
+# Función callback para detectar cambio en la barra de búsqueda
+def on_search_change():
+    st.session_state.ejecutar_busqueda = True
+
+# Barra de búsqueda
 consulta = st.text_input(
     "🔎 Describa el bien o servicio o ingrese un código UNSPSC:",
     value=st.session_state.consulta,
     placeholder="Ej: perro, computadora, 10101502, 25101503...",
     key="input_busqueda",
-    on_change=None
+    on_change=on_search_change
 )
 
-# Forzar actualización cuando cambia el input
-if consulta != st.session_state.get("consulta_anterior", ""):
-    st.session_state.consulta_anterior = consulta
+# Ejecutar búsqueda si se disparó el callback o si hay consulta nueva
+if st.session_state.ejecutar_busqueda or (consulta and consulta != st.session_state.consulta):
     st.session_state.consulta = consulta
-
-# Ejecutar búsqueda (SIEMPRE BUSCA CUANDO HAY CONSULTA)
-if consulta:
-    with st.spinner("🔍 Buscando..."):
-        try:
-            df = st.session_state.df_filtrado
-            if df.empty:
-                df = cargar_catalogo()
-            
-            if df is not None and not df.empty:
-                if es_busqueda_por_codigo(consulta):
-                    resultados_codigo = buscar_por_codigo(df, consulta)
-                    
-                    if not resultados_codigo.empty:
-                        resultados = []
-                        for _, fila in resultados_codigo.iterrows():
-                            resultados.append((100.0, True, fila))
+    st.session_state.ejecutar_busqueda = False
+    
+    if consulta:
+        with st.spinner("🔍 Buscando..."):
+            try:
+                df = st.session_state.df_filtrado
+                if df.empty:
+                    df = cargar_catalogo()
+                
+                if df is not None and not df.empty:
+                    if es_busqueda_por_codigo(consulta):
+                        resultados_codigo = buscar_por_codigo(df, consulta)
+                        
+                        if not resultados_codigo.empty:
+                            resultados = []
+                            for _, fila in resultados_codigo.iterrows():
+                                resultados.append((100.0, True, fila))
+                            
+                            st.session_state.resultados = resultados
+                            st.session_state.sinonimos = []
+                            st.session_state.tipo_busqueda = "código"
+                        else:
+                            st.session_state.resultados = []
+                            st.session_state.sinonimos = []
+                            st.session_state.tipo_busqueda = "código"
+                    else:
+                        embeddings = cargar_embeddings()
+                        sinonimos_dict = cargar_sinonimos()
+                        
+                        sinonimos = sinonimos_dict.get(normalizar(consulta), [])
+                        resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
                         
                         st.session_state.resultados = resultados
-                        st.session_state.sinonimos = []
-                        st.session_state.tipo_busqueda = "código"
-                    else:
-                        st.session_state.resultados = []
-                        st.session_state.sinonimos = []
-                        st.session_state.tipo_busqueda = "código"
+                        st.session_state.sinonimos = sinonimos
+                        st.session_state.tipo_busqueda = "texto"
                 else:
-                    embeddings = cargar_embeddings()
-                    sinonimos_dict = cargar_sinonimos()
+                    st.warning("No hay datos para buscar")
                     
-                    sinonimos = sinonimos_dict.get(normalizar(consulta), [])
-                    resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
-                    
-                    st.session_state.resultados = resultados
-                    st.session_state.sinonimos = sinonimos
-                    st.session_state.tipo_busqueda = "texto"
-            else:
-                st.warning("No hay datos para buscar")
-                
-        except Exception as e:
-            st.error(f"❌ Error en la búsqueda: {e}")
-            import traceback
-            with st.expander("🔍 Ver detalles del error"):
-                st.code(traceback.format_exc())
-else:
-    # Si no hay consulta, limpiar resultados
-    st.session_state.resultados = []
-    st.session_state.sinonimos = []
-    st.session_state.consulta_anterior = ""
+            except Exception as e:
+                st.error(f"❌ Error en la búsqueda: {e}")
+                import traceback
+                with st.expander("🔍 Ver detalles del error"):
+                    st.code(traceback.format_exc())
+    else:
+        # Si no hay consulta, limpiar resultados
+        st.session_state.resultados = []
+        st.session_state.sinonimos = []
+        st.session_state.tipo_busqueda = "texto"
 
 # Mostrar resultados
 resultados = st.session_state.resultados
