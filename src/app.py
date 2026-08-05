@@ -253,7 +253,7 @@ st.caption("Catálogo Oficial de Bienes y Servicios DGCP")
 st.markdown("*por Rudy Pérez*")
 
 # =====================================================
-# SIDEBAR - FILTROS
+# SIDEBAR - FILTROS CON BOTÓN LIMPIAR
 # =====================================================
 
 with st.sidebar:
@@ -293,6 +293,18 @@ with st.sidebar:
         st.error(f"Error cargando filtros: {e}")
         st.session_state.df_filtrado = pd.DataFrame()
     
+    # =====================================================
+    # BOTÓN LIMPIAR (NUEVO EN SIDEBAR)
+    # =====================================================
+    st.divider()
+    if st.button("🧹 Limpiar Búsqueda", use_container_width=True):
+        st.session_state.consulta = ""
+        st.session_state.consulta_anterior = ""
+        st.session_state.resultados = []
+        st.session_state.sinonimos = []
+        st.session_state.tipo_busqueda = "texto"
+        st.rerun()
+    
     st.divider()
     st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
@@ -311,8 +323,10 @@ if "df_filtrado" not in st.session_state:
     st.session_state.df_filtrado = pd.DataFrame()
 if "tipo_busqueda" not in st.session_state:
     st.session_state.tipo_busqueda = "texto"
+if "consulta_anterior" not in st.session_state:
+    st.session_state.consulta_anterior = ""
 
-# Barra de búsqueda
+# Barra de búsqueda (SIN BOTÓN LIMPIAR)
 consulta = st.text_input(
     "🔎 Describa el bien o servicio o ingrese un código UNSPSC:",
     value=st.session_state.consulta,
@@ -320,65 +334,57 @@ consulta = st.text_input(
     key="input_busqueda"
 )
 
-# Botón Limpiar
-col_boton = st.columns([1, 5])
-with col_boton[0]:
-    if st.button("🧹 Limpiar", use_container_width=True):
-        st.session_state.consulta = ""
-        st.session_state.resultados = []
-        st.session_state.sinonimos = []
-        st.session_state.tipo_busqueda = "texto"
-        st.rerun()
-
-# Ejecutar búsqueda (solo si hay consulta)
-if consulta and consulta != st.session_state.consulta:
-    st.session_state.consulta = consulta
-    
-    with st.spinner("🔍 Buscando..."):
-        try:
-            df = st.session_state.df_filtrado
-            if df.empty:
-                df = cargar_catalogo()
-            
-            if df is not None and not df.empty:
-                if es_busqueda_por_codigo(consulta):
-                    resultados_codigo = buscar_por_codigo(df, consulta)
-                    
-                    if not resultados_codigo.empty:
-                        resultados = []
-                        for _, fila in resultados_codigo.iterrows():
-                            resultados.append((100.0, True, fila))
+# Ejecutar búsqueda (CORREGIDO)
+if consulta:
+    if consulta != st.session_state.get("consulta_anterior", ""):
+        st.session_state.consulta_anterior = consulta
+        st.session_state.consulta = consulta
+        
+        with st.spinner("🔍 Buscando..."):
+            try:
+                df = st.session_state.df_filtrado
+                if df.empty:
+                    df = cargar_catalogo()
+                
+                if df is not None and not df.empty:
+                    if es_busqueda_por_codigo(consulta):
+                        resultados_codigo = buscar_por_codigo(df, consulta)
+                        
+                        if not resultados_codigo.empty:
+                            resultados = []
+                            for _, fila in resultados_codigo.iterrows():
+                                resultados.append((100.0, True, fila))
+                            
+                            st.session_state.resultados = resultados
+                            st.session_state.sinonimos = []
+                            st.session_state.tipo_busqueda = "código"
+                        else:
+                            st.session_state.resultados = []
+                            st.session_state.sinonimos = []
+                            st.session_state.tipo_busqueda = "código"
+                    else:
+                        embeddings = cargar_embeddings()
+                        sinonimos_dict = cargar_sinonimos()
+                        
+                        sinonimos = sinonimos_dict.get(normalizar(consulta), [])
+                        resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
                         
                         st.session_state.resultados = resultados
-                        st.session_state.sinonimos = []
-                        st.session_state.tipo_busqueda = "código"
-                    else:
-                        st.session_state.resultados = []
-                        st.session_state.sinonimos = []
-                        st.session_state.tipo_busqueda = "código"
+                        st.session_state.sinonimos = sinonimos
+                        st.session_state.tipo_busqueda = "texto"
                 else:
-                    embeddings = cargar_embeddings()
-                    sinonimos_dict = cargar_sinonimos()
+                    st.warning("No hay datos para buscar")
                     
-                    sinonimos = sinonimos_dict.get(normalizar(consulta), [])
-                    resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
-                    
-                    st.session_state.resultados = resultados
-                    st.session_state.sinonimos = sinonimos
-                    st.session_state.tipo_busqueda = "texto"
-            else:
-                st.warning("No hay datos para buscar")
-                
-        except Exception as e:
-            st.error(f"❌ Error en la búsqueda: {e}")
-            import traceback
-            with st.expander("🔍 Ver detalles del error"):
-                st.code(traceback.format_exc())
-
-# Si la consulta está vacía, limpiar resultados visuales
-elif not consulta:
+            except Exception as e:
+                st.error(f"❌ Error en la búsqueda: {e}")
+                import traceback
+                with st.expander("🔍 Ver detalles del error"):
+                    st.code(traceback.format_exc())
+else:
+    # Si no hay consulta, limpiar resultados
     st.session_state.resultados = []
     st.session_state.sinonimos = []
+    st.session_state.consulta_anterior = ""
 
 # Mostrar resultados
 resultados = st.session_state.resultados
