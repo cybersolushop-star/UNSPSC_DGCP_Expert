@@ -459,7 +459,7 @@ elif not consulta:
     st.session_state.sinonimos = []
 
 # =====================================================
-# MOSTRAR RESULTADOS CON PAGINACIÓN
+# MOSTRAR RESULTADOS CON PAGINACIÓN (CORREGIDA)
 # =====================================================
 
 resultados = st.session_state.resultados
@@ -509,7 +509,7 @@ if resultados:
     st.subheader(f"📋 Resultados encontrados: {len(resultados)}")
     
     # =====================================================
-    # PAGINACIÓN
+    # PAGINACIÓN (CORREGIDA - SIN st.rerun())
     # =====================================================
     items_por_pagina = 20
     total_items = len(resultados)
@@ -526,24 +526,22 @@ if resultados:
     fin = min(inicio + items_por_pagina, total_items)
     resultados_pagina = resultados[inicio:fin]
     
-    # Controles de paginación (arriba)
+    # Controles de paginación (arriba) - SIN st.rerun()
     if total_paginas > 1:
         col_prev, col_info, col_next = st.columns([1, 3, 1])
         
         with col_prev:
-            if st.button("◀ Anterior", use_container_width=True):
+            if st.button("◀ Anterior", use_container_width=True, key="prev_top"):
                 if st.session_state.pagina_actual > 1:
                     st.session_state.pagina_actual -= 1
-                    st.rerun()
         
         with col_info:
             st.markdown(f"<div style='text-align: center;'>Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)</div>", unsafe_allow_html=True)
         
         with col_next:
-            if st.button("Siguiente ▶", use_container_width=True):
+            if st.button("Siguiente ▶", use_container_width=True, key="next_top"):
                 if st.session_state.pagina_actual < total_paginas:
                     st.session_state.pagina_actual += 1
-                    st.rerun()
     
     # Mostrar resultados de la página actual
     exactos = [r for r in resultados_pagina if r[1]]
@@ -559,7 +557,7 @@ if resultados:
         for score, _, fila in relacionados:
             mostrar_resultado(score, fila, tipo_busqueda)
     
-    # Controles de paginación (abajo)
+    # Controles de paginación (abajo) - SIN st.rerun()
     if total_paginas > 1:
         st.divider()
         col_prev, col_info, col_next = st.columns([1, 3, 1])
@@ -568,7 +566,6 @@ if resultados:
             if st.button("◀ Anterior", use_container_width=True, key="prev_bottom"):
                 if st.session_state.pagina_actual > 1:
                     st.session_state.pagina_actual -= 1
-                    st.rerun()
         
         with col_info:
             st.markdown(f"<div style='text-align: center;'>Página {st.session_state.pagina_actual} de {total_paginas}</div>", unsafe_allow_html=True)
@@ -577,7 +574,6 @@ if resultados:
             if st.button("Siguiente ▶", use_container_width=True, key="next_bottom"):
                 if st.session_state.pagina_actual < total_paginas:
                     st.session_state.pagina_actual += 1
-                    st.rerun()
 
 elif consulta:
     st.info("ℹ️ No se encontraron resultados para esta búsqueda.")
