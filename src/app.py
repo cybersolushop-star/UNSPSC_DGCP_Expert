@@ -429,9 +429,8 @@ def main():
     """Función principal de la aplicación"""
     
     # =====================================================
-    # INICIALIZAR SESSION STATE (SEGURO)
+    # INICIALIZAR SESSION STATE
     # =====================================================
-    # Inicializar todas las variables de session_state al inicio
     if "consulta" not in st.session_state:
         st.session_state.consulta = ""
     if "resultados" not in st.session_state:
@@ -448,7 +447,6 @@ def main():
         st.session_state.ultima_busqueda = ""
     if "search_time_ms" not in st.session_state:
         st.session_state.search_time_ms = 0
-    # --- INICIALIZACIÓN DE consulta_input ---
     if "consulta_input" not in st.session_state:
         st.session_state.consulta_input = ""
 
@@ -519,10 +517,9 @@ def main():
         st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
     # =====================================================
-    # BARRA DE BÚSQUEDA (SIN on_change PARA EVITAR ERRORES)
+    # BARRA DE BÚSQUEDA
     # =====================================================
     
-    # Usar el valor de session_state para mantener la consistencia
     consulta = st.text_input(
         "🔎 Describa el bien o servicio, ingrese un código UNSPSC o una cuenta DIGEPRES:",
         value=st.session_state.consulta,
@@ -530,8 +527,8 @@ def main():
         key="consulta_input"
     )
 
-    # Si la consulta cambió (detectado por el cambio en el widget), actualizar
-    if consulta != st.session_state.ultima_busqueda:
+    # Si la consulta cambió, ejecutar búsqueda
+    if consulta and consulta != st.session_state.ultima_busqueda:
         st.session_state.ultima_busqueda = consulta
         st.session_state.consulta = consulta
         st.session_state.pagina_actual = 1
@@ -586,6 +583,12 @@ def main():
                         embeddings = cargar_embeddings()
                         sinonimos_dict = cargar_sinonimos()
                         sinonimos = sinonimos_dict.get(consulta, [])
+                        
+                        # =====================================================
+                        # DEBUG: Mostrar sinónimos antes de la búsqueda
+                        # =====================================================
+                        st.write(f"🔍 DEBUG: consulta={consulta}, sinonimos={sinonimos}")
+                        
                         resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
                         st.session_state.resultados = resultados
                         st.session_state.sinonimos = sinonimos
