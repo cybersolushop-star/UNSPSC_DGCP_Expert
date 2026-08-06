@@ -37,8 +37,12 @@ def inject_custom_css():
     """Inyecta CSS personalizado"""
     st.markdown("""
     <style>
-        .stTextInput > label { display: none !important; }
-        .stTextInput > div { padding: 0 !important; }
+        .stTextInput > label {
+            display: none !important;
+        }
+        .stTextInput > div {
+            padding: 0 !important;
+        }
         .stTextInput > div > div > input {
             border-radius: 12px !important;
             border: 1px solid #d1d5db !important;
@@ -49,17 +53,37 @@ def inject_custom_css():
             outline: none !important;
             transition: all 0.2s ease !important;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+            width: 100% !important;
         }
         .stTextInput > div > div > input:focus {
             border-color: #1a5276 !important;
             box-shadow: 0 0 0 3px rgba(26, 82, 118, 0.2) !important;
         }
-        .stTextInput > div > div > input::placeholder { color: #9ca3af !important; }
+        .stTextInput > div > div > input::placeholder {
+            color: #9ca3af !important;
+        }
         
-        .main-header { text-align: center; padding: 20px 0 10px 0; }
-        .main-header h1 { color: #1a5276; font-size: 2.5rem; font-weight: 700; margin: 0; }
-        .main-header p { color: #5d6d7e; font-size: 1.1rem; margin: 4px 0 0 0; }
-        .main-header .credits { color: #5d6d7e; font-size: 0.9rem; font-style: italic; margin: 4px 0 0 0; }
+        .main-header {
+            text-align: center;
+            padding: 20px 0 10px 0;
+        }
+        .main-header h1 {
+            color: #1a5276;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        .main-header p {
+            color: #5d6d7e;
+            font-size: 1.1rem;
+            margin: 4px 0 0 0;
+        }
+        .main-header .credits {
+            color: #5d6d7e;
+            font-size: 0.9rem;
+            font-style: italic;
+            margin: 4px 0 0 0;
+        }
         
         .result-card {
             border-radius: 12px;
@@ -69,8 +93,15 @@ def inject_custom_css():
             margin-bottom: 12px;
             transition: box-shadow 0.2s ease;
         }
-        .result-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        .result-card .title { font-size: 20px; font-weight: 700; color: #1a5276; margin: 8px 0; }
+        .result-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .result-card .title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a5276;
+            margin: 8px 0;
+        }
         .result-card .hierarchy {
             font-size: 14px;
             color: #4a4a4a;
@@ -79,7 +110,9 @@ def inject_custom_css():
             border-radius: 8px;
             margin: 8px 0;
         }
-        .result-card .hierarchy .label { font-weight: 600; }
+        .result-card .hierarchy .label {
+            font-weight: 600;
+        }
         .result-card .digepres {
             background: #e8f4f8;
             padding: 12px;
@@ -87,7 +120,9 @@ def inject_custom_css():
             margin: 8px 0;
             border-left: 4px solid #1a5276;
         }
-        .result-card .digepres .label { font-weight: 600; }
+        .result-card .digepres .label {
+            font-weight: 600;
+        }
         
         .metrics-container {
             display: grid;
@@ -104,8 +139,16 @@ def inject_custom_css():
             border: 1px solid #e8e8e8;
             text-align: center;
         }
-        .metric-card .value { font-size: 20px; font-weight: 700; color: #1a5276; }
-        .metric-card .label { font-size: 12px; color: #6b7280; margin-top: 2px; }
+        .metric-card .value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a5276;
+        }
+        .metric-card .label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
         
         .footer {
             text-align: center;
@@ -115,7 +158,9 @@ def inject_custom_css():
             color: #6b7280;
             font-size: 14px;
         }
-        .stSelectbox > div > div { background-color: white !important; }
+        .stSelectbox > div > div {
+            background-color: white !important;
+        }
         .stButton > button {
             background-color: #1a5276 !important;
             color: white !important;
@@ -132,12 +177,14 @@ def inject_custom_css():
             border-radius: 12px !important;
             margin-bottom: 12px !important;
         }
-        .stExpander > div:first-child { border-radius: 12px !important; }
+        .stExpander > div:first-child {
+            border-radius: 12px !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
 # =====================================================
-# FUNCIONES
+# FUNCIONES DE NORMALIZACIÓN
 # =====================================================
 
 def normalizar(texto):
@@ -146,17 +193,25 @@ def normalizar(texto):
     texto = re.sub(r"\s+", " ", texto)
     return texto
 
+# =====================================================
+# BÚSQUEDA POR CÓDIGO
+# =====================================================
+
 def buscar_por_codigo(df, consulta):
     consulta_limpia = re.sub(r"\s+", "", consulta).strip()
+    
     resultado_exacto = df[df["Código UNSPSC"].astype(str) == consulta_limpia]
     if not resultado_exacto.empty:
         return resultado_exacto
+    
     resultado_parcial = df[df["Código UNSPSC"].astype(str).str.startswith(consulta_limpia)]
     if not resultado_parcial.empty:
         return resultado_parcial
+    
     resultado_contiene = df[df["Código UNSPSC"].astype(str).str.contains(consulta_limpia, na=False)]
     if not resultado_contiene.empty:
         return resultado_contiene
+    
     return pd.DataFrame()
 
 def es_busqueda_por_codigo(consulta):
@@ -170,6 +225,10 @@ def es_busqueda_por_codigo(consulta):
 def es_busqueda_por_cuenta(consulta):
     consulta_limpia = consulta.strip()
     return bool(re.match(r'^\d+\.\d+\.\d+\.\d+\.\d+$', consulta_limpia))
+
+# =====================================================
+# CARGAR DATOS
+# =====================================================
 
 @st.cache_data
 def cargar_catalogo():
@@ -190,7 +249,7 @@ def cargar_catalogo_con_digepres():
         else:
             return pd.DataFrame()
     except:
-        return pd.DataFrame()
+            return pd.DataFrame()
 
 @st.cache_data
 def cargar_embeddings():
@@ -229,12 +288,17 @@ def cargar_sinonimos():
     except:
         return {}
 
+# =====================================================
+# BUSCADOR HÍBRIDO
+# =====================================================
+
 def buscar_hibrido(df, embeddings, consulta, sinonimos):
     from rapidfuzz import fuzz
     from sentence_transformers import util
     import torch
     
     modelo = cargar_modelo()
+    
     consulta_norm = normalizar(consulta)
     
     stopwords = {'de', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas',
@@ -321,6 +385,10 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     resultados.sort(key=lambda x: (-x[1], -x[0]))
     return resultados[:200]
 
+# =====================================================
+# MOSTRAR RESULTADO (CON ST.EXPANDER)
+# =====================================================
+
 def mostrar_resultado(score, fila, rank):
     db = DatabaseManager()
     cuenta, descripcion, fuente, confianza = db.obtener_digepres(
@@ -360,7 +428,9 @@ def mostrar_resultado(score, fila, rank):
 def main():
     """Función principal de la aplicación"""
     
-    # Inicializar estado
+    # =====================================================
+    # INICIALIZAR SESSION STATE
+    # =====================================================
     if "consulta" not in st.session_state:
         st.session_state.consulta = ""
     if "resultados" not in st.session_state:
@@ -377,10 +447,15 @@ def main():
         st.session_state.ultima_busqueda = ""
     if "search_time_ms" not in st.session_state:
         st.session_state.search_time_ms = 0
+    # --- NUEVA INICIALIZACIÓN ---
+    if "consulta_input" not in st.session_state:
+        st.session_state.consulta_input = ""
 
     inject_custom_css()
 
-    # Encabezado
+    # =====================================================
+    # ENCABEZADO
+    # =====================================================
     st.markdown("""
     <div class="main-header">
         <h1>🔎 BUSCADOR UNSPSC DGCP</h1>
@@ -389,7 +464,9 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # Sidebar
+    # =====================================================
+    # SIDEBAR - FILTROS
+    # =====================================================
     with st.sidebar:
         st.header("📂 Filtros")
         
@@ -440,7 +517,10 @@ def main():
         st.divider()
         st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
-    # Barra de búsqueda
+    # =====================================================
+    # BARRA DE BÚSQUEDA
+    # =====================================================
+    
     def on_search_change():
         st.session_state.ultima_busqueda = st.session_state.consulta_input
 
@@ -452,7 +532,7 @@ def main():
         on_change=on_search_change
     )
 
-    # Ejecutar búsqueda
+    # Si la consulta cambió, ejecutar búsqueda
     if consulta and consulta != st.session_state.ultima_busqueda:
         st.session_state.ultima_busqueda = consulta
         st.session_state.consulta = consulta
@@ -523,24 +603,30 @@ def main():
         
         st.session_state.search_time_ms = (time.time() - search_start) * 1000
 
+    # Si no hay consulta, limpiar resultados
     elif not consulta:
         st.session_state.resultados = []
         st.session_state.sinonimos = []
         st.session_state.ultima_busqueda = ""
 
-    # Mostrar resultados
+    # =====================================================
+    # MOSTRAR RESULTADOS
+    # =====================================================
+    
     resultados = st.session_state.resultados
     sinonimos = st.session_state.sinonimos
     tipo_busqueda = st.session_state.get("tipo_busqueda", "texto")
     search_time_ms = st.session_state.get("search_time_ms", 0)
 
     if resultados:
+        # Métricas
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("📊 Resultados", len(resultados))
         col2.metric("🔍 Método", "Híbrido")
         col3.metric("🔗 Sinónimos", len(sinonimos))
         col4.metric("⏱️ Tiempo", f"{search_time_ms:.0f} ms" if search_time_ms > 0 else "< 100 ms")
         
+        # Exportar
         if st.button("📥 Exportar a Excel"):
             export_data = []
             for score, exacto, fila in resultados:
@@ -566,6 +652,7 @@ def main():
         
         st.subheader(f"📋 Resultados encontrados: {len(resultados)}")
         
+        # Paginación
         items_por_pagina = 10
         total_items = len(resultados)
         total_paginas = (total_items + items_por_pagina - 1) // items_por_pagina
@@ -579,6 +666,7 @@ def main():
         fin = min(inicio + items_por_pagina, total_items)
         resultados_pagina = resultados[inicio:fin]
         
+        # Controles de paginación (con keys únicas)
         if total_paginas > 1:
             col_prev, col_info, col_next = st.columns([1, 3, 1])
             with col_prev:
@@ -592,11 +680,13 @@ def main():
                     if st.session_state.pagina_actual < total_paginas:
                         st.session_state.pagina_actual += 1
         
+        # Mostrar resultados con expander
         rank = inicio + 1
         for score, exacto, fila in resultados_pagina:
             mostrar_resultado(score, fila, rank)
             rank += 1
         
+        # Controles de paginación (abajo con keys únicas)
         if total_paginas > 1:
             st.divider()
             col_prev, col_info, col_next = st.columns([1, 3, 1])
@@ -615,7 +705,9 @@ def main():
         st.info("ℹ️ No se encontraron resultados para esta búsqueda.")
         st.caption("Sugerencias: prueba con sinónimos o términos más generales.")
 
-    # Footer
+    # =====================================================
+    # FOOTER
+    # =====================================================
     st.markdown("""
     <div class="footer">
         © 2026, todos los derechos reservados. | BUSCADOR UNSPSC DGCP
