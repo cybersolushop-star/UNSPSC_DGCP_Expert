@@ -30,102 +30,39 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILOS CSS
+# ESTILOS CSS (CON BARRA DE BÚSQUEDA VISIBLE)
 # =====================================================
 
 def inject_custom_css():
     """Inyecta CSS personalizado"""
     st.markdown("""
     <style>
-        /* Ocultar el input de Streamlit */
+        /* Estilos para el input de Streamlit - VISIBLE */
         .stTextInput > label {
             display: none !important;
         }
         .stTextInput > div {
             padding: 0 !important;
         }
-        .stTextInput > div > div {
-            display: none !important;
-        }
         .stTextInput > div > div > input {
-            display: none !important;
+            border-radius: 12px !important;
+            border: 1px solid #d1d5db !important;
+            padding: 14px 16px !important;
+            font-size: 16px !important;
+            color: #1a1a2e !important;
+            background-color: white !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+            width: 100% !important;
+            height: 56px !important;
         }
-        
-        /* Barra de búsqueda */
-        .search-container {
-            max-width: 896px;
-            margin: 16px auto 8px auto;
-            padding: 0 16px;
+        .stTextInput > div > div > input:focus {
+            border-color: #1a5276 !important;
+            box-shadow: 0 0 0 3px rgba(26, 82, 118, 0.2) !important;
         }
-        .search-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .search-input-wrapper {
-            position: relative;
-            flex: 1;
-        }
-        .search-icon {
-            position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 20px;
-            height: 20px;
-            color: #6b7280;
-            pointer-events: none;
-        }
-        .search-input {
-            width: 100%;
-            height: 56px;
-            border-radius: 12px;
-            border: 1px solid #d1d5db;
-            background-color: white;
-            padding-left: 48px;
-            padding-right: 16px;
-            font-size: 16px;
-            color: #1a1a2e;
-            outline: none;
-            transition: all 0.2s ease;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        .search-input::placeholder {
-            color: #9ca3af;
-        }
-        .search-input:focus {
-            border-color: #1a5276;
-            box-shadow: 0 0 0 3px rgba(26, 82, 118, 0.2);
-        }
-        .search-btn {
-            height: 56px;
-            border-radius: 12px;
-            background: linear-gradient(to right, #1a5276, #2e86c1);
-            color: white;
-            padding: 0 32px;
-            font-size: 14px;
-            font-weight: 500;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-shrink: 0;
-        }
-        .search-btn:hover {
-            box-shadow: 0 4px 12px rgba(26, 82, 118, 0.3);
-            transform: translateY(-1px);
-        }
-        .search-btn svg {
-            width: 20px;
-            height: 20px;
-        }
-        
-        /* Ocultar el filtro de nivel "Todos" */
-        .filter-container {
-            display: none !important;
+        .stTextInput > div > div > input::placeholder {
+            color: #9ca3af !important;
         }
         
         /* Ajustes generales */
@@ -218,35 +155,6 @@ def inject_custom_css():
             margin-top: 2px;
         }
         
-        /* Productos relacionados */
-        .related-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-top: 12px;
-        }
-        .related-item {
-            border: 1px solid #e8e8e8;
-            border-radius: 8px;
-            padding: 12px;
-            background: white;
-            transition: all 0.2s ease;
-        }
-        .related-item:hover {
-            border-color: #1a5276;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        .related-item .title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #1a5276;
-        }
-        .related-item .code {
-            font-size: 12px;
-            color: #6b7280;
-            font-family: monospace;
-        }
-        
         /* Footer */
         .footer {
             text-align: center;
@@ -260,6 +168,34 @@ def inject_custom_css():
         /* Ajustes de formulario */
         .stForm {
             padding: 0 !important;
+        }
+        
+        /* Selectbox en sidebar */
+        .stSelectbox > div > div {
+            background-color: white !important;
+        }
+        
+        /* Botones */
+        .stButton > button {
+            background-color: #1a5276 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+        }
+        .stButton > button:hover {
+            background-color: #154360 !important;
+            box-shadow: 0 2px 8px rgba(26, 82, 118, 0.3) !important;
+        }
+        
+        /* Expander */
+        .stExpander {
+            border: 1px solid #e8e8e8 !important;
+            border-radius: 12px !important;
+            margin-bottom: 12px !important;
+        }
+        .stExpander > div:first-child {
+            border-radius: 12px !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -594,7 +530,7 @@ with st.sidebar:
     st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
 # =====================================================
-# BARRA DE BÚSQUEDA (CORREGIDA - BÚSQUEDA AUTOMÁTICA)
+# BARRA DE BÚSQUEDA - VISIBLE Y FUNCIONAL
 # =====================================================
 
 # Función para manejar el cambio en la barra de búsqueda
@@ -753,7 +689,7 @@ if resultados:
                 if st.session_state.pagina_actual > 1:
                     st.session_state.pagina_actual -= 1
         with col_info:
-            st.markdown(f"<p style='text-align:center;color:#94a3b8;'>Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align:center;color:#6b7280;'>Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)</p>", unsafe_allow_html=True)
         with col_next:
             if st.button("Siguiente ▶", use_container_width=True, key="next_top"):
                 if st.session_state.pagina_actual < total_paginas:
@@ -774,7 +710,7 @@ if resultados:
                 if st.session_state.pagina_actual > 1:
                     st.session_state.pagina_actual -= 1
         with col_info:
-            st.markdown(f"<p style='text-align:center;color:#94a3b8;'>Página {st.session_state.pagina_actual} de {total_paginas}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align:center;color:#6b7280;'>Página {st.session_state.pagina_actual} de {total_paginas}</p>", unsafe_allow_html=True)
         with col_next:
             if st.button("Siguiente ▶", use_container_width=True, key="next_bottom"):
                 if st.session_state.pagina_actual < total_paginas:
