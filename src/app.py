@@ -30,13 +30,21 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILOS CSS
+# ESTILOS CSS (FONDO OSCURO)
 # =====================================================
 
 def inject_custom_css():
-    """Inyecta CSS personalizado"""
+    """Inyecta CSS personalizado con fondo oscuro"""
     st.markdown("""
     <style>
+        /* Fondo general oscuro */
+        .stApp {
+            background-color: #0e1117 !important;
+        }
+        .main {
+            background-color: #0e1117 !important;
+        }
+        
         /* Barra de búsqueda */
         .search-container {
             max-width: 896px;
@@ -66,22 +74,22 @@ def inject_custom_css():
             width: 100%;
             height: 56px;
             border-radius: 12px;
-            border: 1px solid #d1d5db;
-            background-color: white;
+            border: 1px solid #334155;
+            background-color: #1e293b;
             padding-left: 48px;
             padding-right: 16px;
             font-size: 16px;
-            color: #1a1a2e;
+            color: #f1f5f9;
             outline: none;
             transition: all 0.2s ease;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
         .search-input::placeholder {
-            color: #9ca3af;
+            color: #64748b;
         }
         .search-input:focus {
-            border-color: #1a5276;
-            box-shadow: 0 0 0 3px rgba(26, 82, 118, 0.2);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
         .search-btn {
             height: 56px;
@@ -101,17 +109,12 @@ def inject_custom_css():
             flex-shrink: 0;
         }
         .search-btn:hover {
-            box-shadow: 0 4px 12px rgba(26, 82, 118, 0.3);
+            box-shadow: 0 4px 12px rgba(26, 82, 118, 0.4);
             transform: translateY(-1px);
         }
         .search-btn svg {
             width: 20px;
             height: 20px;
-        }
-        
-        /* Ocultar el filtro de nivel "Todos" */
-        .filter-container {
-            display: none !important;
         }
         
         /* Ajustes generales */
@@ -120,103 +123,121 @@ def inject_custom_css():
             padding: 20px 0 10px 0;
         }
         .main-header h1 {
-            color: #1a5276;
+            color: #f1f5f9;
             font-size: 2.5rem;
             font-weight: 700;
             margin: 0;
         }
         .main-header p {
-            color: #5d6d7e;
+            color: #94a3b8;
             font-size: 1.1rem;
             margin: 4px 0 0 0;
         }
         .main-header .credits {
-            color: #5d6d7e;
+            color: #64748b;
             font-size: 0.9rem;
             font-style: italic;
             margin: 4px 0 0 0;
         }
         
-        /* Resultados */
-        .result-card {
-            border-radius: 12px;
-            border: 1px solid #e8e8e8;
-            background: white;
-            padding: 20px;
-            margin-bottom: 12px;
-            transition: box-shadow 0.2s ease;
+        /* Expander de resultados */
+        .stExpander {
+            background-color: #1a1a2e !important;
+            border: 1px solid #2d2d44 !important;
+            border-radius: 12px !important;
+            margin-bottom: 12px !important;
         }
-        .result-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        .stExpander > div:first-child {
+            background-color: #1a1a2e !important;
+            border-radius: 12px !important;
         }
-        .result-card .title {
-            font-size: 20px;
-            font-weight: 700;
-            color: #1a5276;
-            margin: 8px 0;
+        .stExpander > div:first-child:hover {
+            background-color: #2d2d44 !important;
         }
-        .result-card .hierarchy {
-            font-size: 14px;
-            color: #4a4a4a;
-            padding: 12px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            margin: 8px 0;
+        .stExpander > div:first-child p {
+            color: #f1f5f9 !important;
         }
-        .result-card .hierarchy .label {
-            font-weight: 600;
-        }
-        .result-card .digepres {
-            background: #e8f4f8;
-            padding: 12px;
-            border-radius: 8px;
-            margin: 8px 0;
-            border-left: 4px solid #1a5276;
-        }
-        .result-card .digepres .label {
-            font-weight: 600;
+        .stExpander > div:last-child {
+            background-color: #1a1a2e !important;
+            border-radius: 0 0 12px 12px !important;
         }
         
         /* Métricas */
-        .metrics-container {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            max-width: 1280px;
-            margin: 16px auto;
-            padding: 0 16px;
+        .stMetric {
+            background-color: #1a1a2e !important;
+            border: 1px solid #2d2d44 !important;
+            border-radius: 8px !important;
+            padding: 12px 16px !important;
         }
-        .metric-card {
-            background: white;
-            border-radius: 8px;
-            padding: 12px 16px;
-            border: 1px solid #e8e8e8;
-            text-align: center;
+        .stMetric label {
+            color: #94a3b8 !important;
         }
-        .metric-card .value {
-            font-size: 20px;
-            font-weight: 700;
-            color: #1a5276;
+        .stMetric div {
+            color: #f1f5f9 !important;
         }
-        .metric-card .label {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 2px;
+        
+        /* Botones */
+        .stButton > button {
+            background-color: #1a1a2e !important;
+            color: #f1f5f9 !important;
+            border: 1px solid #2d2d44 !important;
+            border-radius: 8px !important;
+        }
+        .stButton > button:hover {
+            background-color: #2d2d44 !important;
+            border-color: #3b82f6 !important;
+        }
+        
+        /* Texto general */
+        .stMarkdown {
+            color: #f1f5f9 !important;
+        }
+        .stSubheader {
+            color: #f1f5f9 !important;
+        }
+        .stInfo {
+            background-color: #1e293b !important;
+            border-color: #3b82f6 !important;
+            color: #f1f5f9 !important;
+        }
+        .stWarning {
+            background-color: #1e293b !important;
+            border-color: #f59e0b !important;
+            color: #f1f5f9 !important;
+        }
+        
+        /* Sidebar */
+        [data-testid="stSidebar"] {
+            background-color: #0f172a !important;
+            border-right: 1px solid #2d2d44 !important;
+        }
+        [data-testid="stSidebar"] * {
+            color: #f1f5f9 !important;
         }
         
         /* Footer */
         .footer {
             text-align: center;
             padding: 20px 16px;
-            border-top: 1px solid #e8e8e8;
+            border-top: 1px solid #2d2d44;
             margin-top: 24px;
-            color: #6b7280;
+            color: #64748b;
             font-size: 14px;
         }
         
-        /* Ajustes de formulario */
-        .stForm {
-            padding: 0 !important;
+        /* Selectbox */
+        .stSelectbox > div > div {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f1f5f9 !important;
+        }
+        .stSelectbox > div > div:hover {
+            border-color: #3b82f6 !important;
+        }
+        
+        /* Spinner */
+        .stSpinner > div {
+            color: #f1f5f9 !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -424,7 +445,7 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     return resultados[:200]
 
 # =====================================================
-# MOSTRAR RESULTADO
+# MOSTRAR RESULTADO (CON ST.EXPANDER)
 # =====================================================
 
 def mostrar_resultado(score, fila, rank):
@@ -434,34 +455,30 @@ def mostrar_resultado(score, fila, rank):
         descripcion_item=fila["Descripción"]
     )
     
-    html = f"""
-    <div class="result-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <span style="font-size:14px;color:#6b7280;">Código: <strong>{fila['Código UNSPSC']}</strong></span>
-            <span style="background:#1a5276;color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:bold;">{rank}</span>
-        </div>
-        <div class="title">{fila['Descripción']}</div>
-        <div class="hierarchy">
-            <div><span class="label">Segmento:</span> {fila['Segmento']}</div>
-            <div><span class="label">Familia:</span> {fila['Familia']}</div>
-            <div><span class="label">Clase:</span> {fila['Clase']}</div>
-        </div>
-        <div class="digepres">
-            <div><span class="label">💰 Clasificación DIGEPRES</span></div>
-            <div><span class="label">Cuenta:</span> {cuenta if cuenta else 'No asignada'}</div>
-            <div><span class="label">Descripción:</span> {descripcion if descripcion else 'Sin descripción'}</div>
-            <div style="font-size:12px;color:#6b7280;margin-top:4px;">Confianza: {int(score)}% | Score: {score:.1f}</div>
-        </div>
-        <div style="font-size:14px;color:#4a4a4a;margin-top:8px;font-style:italic;">
-            {fila.get('Definición', 'No hay definición disponible')[:200]}{'...' if len(str(fila.get('Definición', ''))) > 200 else ''}
-        </div>
-        <div style="margin-top:8px;font-size:12px;color:#6b7280;">
-            Versión: {fila.get('Fecha Versión', 'No disponible')}
-        </div>
-    </div>
-    """
+    titulo = f"{score:.0f}% | {fila['Código UNSPSC']} | {fila['Descripción']}"
     
-    st.markdown(html, unsafe_allow_html=True)
+    with st.expander(titulo):
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.write("**📋 Código:**", fila["Código UNSPSC"])
+            st.write("**📝 Descripción:**", fila["Descripción"])
+            if fila.get("Definición") and str(fila["Definición"]) != "nan":
+                st.write("**📖 Definición:**", fila["Definición"])
+            st.write("**📂 Segmento:**", fila["Segmento"])
+            st.write("**📁 Familia:**", fila["Familia"])
+            st.write("**📄 Clase:**", fila["Clase"])
+        
+        with col2:
+            st.write("**💰 Clasificación DIGEPRES**")
+            if cuenta:
+                st.success(f"**Cuenta:** {cuenta}")
+                st.write(f"**Descripción:** {descripcion}")
+                st.caption(f"🔍 Fuente: {fuente} | Confianza: {confianza:.0%}")
+            else:
+                st.warning("Sin clasificación DIGEPRES asignada")
+        
+        st.caption(f"📅 Versión: {fila.get('Fecha Versión', 'No disponible')}")
 
 # =====================================================
 # INTERFAZ PRINCIPAL
@@ -555,7 +572,7 @@ with st.sidebar:
     st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
 # =====================================================
-# BARRA DE BÚSQUEDA CON st.form (FUNCIONAL)
+# BARRA DE BÚSQUEDA CON st.form
 # =====================================================
 
 with st.form(key="search_form", clear_on_submit=False):
@@ -571,10 +588,9 @@ with st.form(key="search_form", clear_on_submit=False):
         )
     
     with col2:
-        st.markdown("<br>", unsafe_allow_html=True)  # Espaciado para alinear
         submitted = st.form_submit_button("🔍 Buscar", use_container_width=True)
 
-# Actualizar consulta si se envió el formulario
+# Ejecutar búsqueda si se envió el formulario
 if submitted and consulta:
     st.session_state.consulta = consulta
     st.session_state.ultima_busqueda = consulta
@@ -645,11 +661,6 @@ if submitted and consulta:
     
     st.session_state.search_time_ms = (time.time() - search_start) * 1000
 
-# Si no hay consulta, limpiar resultados
-elif not consulta:
-    st.session_state.resultados = []
-    st.session_state.sinonimos = []
-
 # =====================================================
 # MOSTRAR RESULTADOS
 # =====================================================
@@ -707,38 +718,36 @@ if resultados:
     fin = min(inicio + items_por_pagina, total_items)
     resultados_pagina = resultados[inicio:fin]
     
-    # Controles de paginación
+    # Controles de paginación (con keys únicas)
     if total_paginas > 1:
         col_prev, col_info, col_next = st.columns([1, 3, 1])
         with col_prev:
-            if st.button("◀ Anterior", use_container_width=True):
+            if st.button("◀ Anterior", use_container_width=True, key="prev_top"):
                 if st.session_state.pagina_actual > 1:
                     st.session_state.pagina_actual -= 1
         with col_info:
-            st.write(f"Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)")
+            st.markdown(f"<p style='text-align:center;color:#94a3b8;'>Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)</p>", unsafe_allow_html=True)
         with col_next:
-            if st.button("Siguiente ▶", use_container_width=True):
+            if st.button("Siguiente ▶", use_container_width=True, key="next_top"):
                 if st.session_state.pagina_actual < total_paginas:
                     st.session_state.pagina_actual += 1
     
-    # Mostrar resultados
-    rank = inicio + 1
+    # Mostrar resultados con expander
     for score, exacto, fila in resultados_pagina:
-        mostrar_resultado(score, fila, rank)
-        rank += 1
+        mostrar_resultado(score, fila, 0)
     
-    # Controles de paginación abajo
+    # Controles de paginación (abajo con keys únicas)
     if total_paginas > 1:
         st.divider()
         col_prev, col_info, col_next = st.columns([1, 3, 1])
         with col_prev:
-            if st.button("◀ Anterior", use_container_width=True):
+            if st.button("◀ Anterior", use_container_width=True, key="prev_bottom"):
                 if st.session_state.pagina_actual > 1:
                     st.session_state.pagina_actual -= 1
         with col_info:
-            st.write(f"Página {st.session_state.pagina_actual} de {total_paginas}")
+            st.markdown(f"<p style='text-align:center;color:#94a3b8;'>Página {st.session_state.pagina_actual} de {total_paginas}</p>", unsafe_allow_html=True)
         with col_next:
-            if st.button("Siguiente ▶", use_container_width=True):
+            if st.button("Siguiente ▶", use_container_width=True, key="next_bottom"):
                 if st.session_state.pagina_actual < total_paginas:
                     st.session_state.pagina_actual += 1
 
