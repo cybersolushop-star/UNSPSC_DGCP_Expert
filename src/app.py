@@ -432,293 +432,299 @@ def mostrar_resultado(score, fila, rank):
         st.caption(f"📅 Versión: {fila.get('Fecha Versión', 'No disponible')}")
 
 # =====================================================
-# INTERFAZ PRINCIPAL
+# FUNCIÓN PRINCIPAL
 # =====================================================
 
-# Inicializar estado
-if "consulta" not in st.session_state:
-    st.session_state.consulta = ""
-if "resultados" not in st.session_state:
-    st.session_state.resultados = []
-if "sinonimos" not in st.session_state:
-    st.session_state.sinonimos = []
-if "df_filtrado" not in st.session_state:
-    st.session_state.df_filtrado = pd.DataFrame()
-if "tipo_busqueda" not in st.session_state:
-    st.session_state.tipo_busqueda = "texto"
-if "pagina_actual" not in st.session_state:
-    st.session_state.pagina_actual = 1
-if "ultima_busqueda" not in st.session_state:
-    st.session_state.ultima_busqueda = ""
-if "search_time_ms" not in st.session_state:
-    st.session_state.search_time_ms = 0
-
-# Inyectar CSS
-inject_custom_css()
-
-# =====================================================
-# ENCABEZADO
-# =====================================================
-
-st.markdown("""
-<div class="main-header">
-    <h1>🔎 BUSCADOR UNSPSC DGCP</h1>
-    <p>Catálogo de Bienes y Servicios DGCP</p>
-    <p class="credits">por Rudy Pérez</p>
-</div>
-""", unsafe_allow_html=True)
-
-# =====================================================
-# SIDEBAR - FILTROS
-# =====================================================
-
-with st.sidebar:
-    st.header("📂 Filtros")
+def main():
+    """Función principal de la aplicación"""
     
-    try:
-        df_catalogo = cargar_catalogo()
-        
-        if df_catalogo is not None and not df_catalogo.empty:
-            segmentos = sorted(df_catalogo["Segmento"].dropna().unique())
-            segmento = st.selectbox("Segmento", ["Todos"] + list(segmentos))
-            
-            if segmento != "Todos":
-                df_filtrado = df_catalogo[df_catalogo["Segmento"] == segmento]
-            else:
-                df_filtrado = df_catalogo
-            
-            familias = sorted(df_filtrado["Familia"].dropna().unique())
-            familia = st.selectbox("Familia", ["Todas"] + list(familias))
-            
-            if familia != "Todas":
-                df_filtrado = df_filtrado[df_filtrado["Familia"] == familia]
-            
-            clases = sorted(df_filtrado["Clase"].dropna().unique())
-            clase = st.selectbox("Clase", ["Todas"] + list(clases))
-            
-            if clase != "Todas":
-                df_filtrado = df_filtrado[df_filtrado["Clase"] == clase]
-            
-            st.caption(f"📊 {len(df_filtrado)} ítems disponibles")
-            st.session_state.df_filtrado = df_filtrado
-        else:
-            st.warning("No se pudo cargar el catálogo")
-            st.session_state.df_filtrado = pd.DataFrame()
-            
-    except Exception as e:
-        st.error(f"Error cargando filtros: {e}")
-        st.session_state.df_filtrado = pd.DataFrame()
-    
-    st.divider()
-    if st.button("🧹 Limpiar Búsqueda", use_container_width=True):
+    # Inicializar estado
+    if "consulta" not in st.session_state:
         st.session_state.consulta = ""
+    if "resultados" not in st.session_state:
         st.session_state.resultados = []
+    if "sinonimos" not in st.session_state:
         st.session_state.sinonimos = []
+    if "df_filtrado" not in st.session_state:
+        st.session_state.df_filtrado = pd.DataFrame()
+    if "tipo_busqueda" not in st.session_state:
         st.session_state.tipo_busqueda = "texto"
+    if "pagina_actual" not in st.session_state:
         st.session_state.pagina_actual = 1
+    if "ultima_busqueda" not in st.session_state:
         st.session_state.ultima_busqueda = ""
-        st.rerun()
-    
-    st.divider()
-    st.caption("🔎 UNSPSC DGCP Expert v2.0")
+    if "search_time_ms" not in st.session_state:
+        st.session_state.search_time_ms = 0
 
-# =====================================================
-# BARRA DE BÚSQUEDA - VISIBLE Y FUNCIONAL
-# =====================================================
+    # Inyectar CSS
+    inject_custom_css()
 
-# Función para manejar el cambio en la barra de búsqueda
-def on_search_change():
-    """Se ejecuta cuando el usuario cambia el texto en la barra de búsqueda"""
-    st.session_state.ultima_busqueda = st.session_state.consulta_input
+    # =====================================================
+    # ENCABEZADO
+    # =====================================================
+    st.markdown("""
+    <div class="main-header">
+        <h1>🔎 BUSCADOR UNSPSC DGCP</h1>
+        <p>Catálogo de Bienes y Servicios DGCP</p>
+        <p class="credits">por Rudy Pérez</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Barra de búsqueda
-consulta = st.text_input(
-    "🔎 Describa el bien o servicio, ingrese un código UNSPSC o una cuenta DIGEPRES:",
-    value=st.session_state.consulta,
-    placeholder="Ej: perro, computadora, 10101502, 25101503, 2.3.9.4.01...",
-    key="consulta_input",
-    on_change=on_search_change
-)
-
-# Si la consulta cambió, ejecutar búsqueda
-if consulta and consulta != st.session_state.ultima_busqueda:
-    st.session_state.ultima_busqueda = consulta
-    st.session_state.consulta = consulta
-    st.session_state.pagina_actual = 1
-    
-    search_start = time.time()
-    
-    with st.spinner("🔍 Buscando..."):
+    # =====================================================
+    # SIDEBAR - FILTROS
+    # =====================================================
+    with st.sidebar:
+        st.header("📂 Filtros")
+        
         try:
-            df = st.session_state.df_filtrado
-            if df.empty:
-                df = cargar_catalogo()
+            df_catalogo = cargar_catalogo()
             
-            if df is not None and not df.empty:
-                if es_busqueda_por_cuenta(consulta):
-                    df_digepres = cargar_catalogo_con_digepres()
-                    if not df_digepres.empty:
-                        df_cuenta = df_digepres[df_digepres['cuenta_digepres'].astype(str).str.strip() == consulta.strip()]
-                        if not df_cuenta.empty:
-                            resultados = []
-                            for _, fila in df_cuenta.iterrows():
-                                codigo = fila['Código']
-                                fila_catalogo = df[df["Código UNSPSC"].astype(str).str.strip() == str(codigo).strip()]
-                                if not fila_catalogo.empty:
-                                    resultados.append((100.0, True, fila_catalogo.iloc[0]))
-                                else:
-                                    resultados.append((100.0, True, fila))
-                            st.session_state.resultados = resultados
-                            st.session_state.sinonimos = []
-                            st.session_state.tipo_busqueda = "cuenta"
+            if df_catalogo is not None and not df_catalogo.empty:
+                segmentos = sorted(df_catalogo["Segmento"].dropna().unique())
+                segmento = st.selectbox("Segmento", ["Todos"] + list(segmentos))
+                
+                if segmento != "Todos":
+                    df_filtrado = df_catalogo[df_catalogo["Segmento"] == segmento]
+                else:
+                    df_filtrado = df_catalogo
+                
+                familias = sorted(df_filtrado["Familia"].dropna().unique())
+                familia = st.selectbox("Familia", ["Todas"] + list(familias))
+                
+                if familia != "Todas":
+                    df_filtrado = df_filtrado[df_filtrado["Familia"] == familia]
+                
+                clases = sorted(df_filtrado["Clase"].dropna().unique())
+                clase = st.selectbox("Clase", ["Todas"] + list(clases))
+                
+                if clase != "Todas":
+                    df_filtrado = df_filtrado[df_filtrado["Clase"] == clase]
+                
+                st.caption(f"📊 {len(df_filtrado)} ítems disponibles")
+                st.session_state.df_filtrado = df_filtrado
+            else:
+                st.warning("No se pudo cargar el catálogo")
+                st.session_state.df_filtrado = pd.DataFrame()
+                
+        except Exception as e:
+            st.error(f"Error cargando filtros: {e}")
+            st.session_state.df_filtrado = pd.DataFrame()
+        
+        st.divider()
+        if st.button("🧹 Limpiar Búsqueda", use_container_width=True):
+            st.session_state.consulta = ""
+            st.session_state.resultados = []
+            st.session_state.sinonimos = []
+            st.session_state.tipo_busqueda = "texto"
+            st.session_state.pagina_actual = 1
+            st.session_state.ultima_busqueda = ""
+            st.rerun()
+        
+        st.divider()
+        st.caption("🔎 UNSPSC DGCP Expert v2.0")
+
+    # =====================================================
+    # BARRA DE BÚSQUEDA
+    # =====================================================
+    
+    # Función para manejar el cambio en la barra de búsqueda
+    def on_search_change():
+        st.session_state.ultima_busqueda = st.session_state.consulta_input
+
+    # Barra de búsqueda
+    consulta = st.text_input(
+        "🔎 Describa el bien o servicio, ingrese un código UNSPSC o una cuenta DIGEPRES:",
+        value=st.session_state.consulta,
+        placeholder="Ej: perro, computadora, 10101502, 25101503, 2.3.9.4.01...",
+        key="consulta_input",
+        on_change=on_search_change
+    )
+
+    # Si la consulta cambió, ejecutar búsqueda
+    if consulta and consulta != st.session_state.ultima_busqueda:
+        st.session_state.ultima_busqueda = consulta
+        st.session_state.consulta = consulta
+        st.session_state.pagina_actual = 1
+        
+        search_start = time.time()
+        
+        with st.spinner("🔍 Buscando..."):
+            try:
+                df = st.session_state.df_filtrado
+                if df.empty:
+                    df = cargar_catalogo()
+                
+                if df is not None and not df.empty:
+                    if es_busqueda_por_cuenta(consulta):
+                        df_digepres = cargar_catalogo_con_digepres()
+                        if not df_digepres.empty:
+                            df_cuenta = df_digepres[df_digepres['cuenta_digepres'].astype(str).str.strip() == consulta.strip()]
+                            if not df_cuenta.empty:
+                                resultados = []
+                                for _, fila in df_cuenta.iterrows():
+                                    codigo = fila['Código']
+                                    fila_catalogo = df[df["Código UNSPSC"].astype(str).str.strip() == str(codigo).strip()]
+                                    if not fila_catalogo.empty:
+                                        resultados.append((100.0, True, fila_catalogo.iloc[0]))
+                                    else:
+                                        resultados.append((100.0, True, fila))
+                                st.session_state.resultados = resultados
+                                st.session_state.sinonimos = []
+                                st.session_state.tipo_busqueda = "cuenta"
+                            else:
+                                st.session_state.resultados = []
+                                st.session_state.sinonimos = []
+                                st.session_state.tipo_busqueda = "cuenta"
                         else:
                             st.session_state.resultados = []
                             st.session_state.sinonimos = []
                             st.session_state.tipo_busqueda = "cuenta"
+                    elif es_busqueda_por_codigo(consulta):
+                        resultados_codigo = buscar_por_codigo(df, consulta)
+                        if not resultados_codigo.empty:
+                            resultados = []
+                            for _, fila in resultados_codigo.iterrows():
+                                resultados.append((100.0, True, fila))
+                            st.session_state.resultados = resultados
+                            st.session_state.sinonimos = []
+                            st.session_state.tipo_busqueda = "código"
+                        else:
+                            st.session_state.resultados = []
+                            st.session_state.sinonimos = []
+                            st.session_state.tipo_busqueda = "código"
                     else:
-                        st.session_state.resultados = []
-                        st.session_state.sinonimos = []
-                        st.session_state.tipo_busqueda = "cuenta"
-                elif es_busqueda_por_codigo(consulta):
-                    resultados_codigo = buscar_por_codigo(df, consulta)
-                    if not resultados_codigo.empty:
-                        resultados = []
-                        for _, fila in resultados_codigo.iterrows():
-                            resultados.append((100.0, True, fila))
+                        embeddings = cargar_embeddings()
+                        sinonimos_dict = cargar_sinonimos()
+                        sinonimos = sinonimos_dict.get(normalizar(consulta), [])
+                        resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
                         st.session_state.resultados = resultados
-                        st.session_state.sinonimos = []
-                        st.session_state.tipo_busqueda = "código"
-                    else:
-                        st.session_state.resultados = []
-                        st.session_state.sinonimos = []
-                        st.session_state.tipo_busqueda = "código"
+                        st.session_state.sinonimos = sinonimos
+                        st.session_state.tipo_busqueda = "texto"
                 else:
-                    embeddings = cargar_embeddings()
-                    sinonimos_dict = cargar_sinonimos()
-                    sinonimos = sinonimos_dict.get(normalizar(consulta), [])
-                    resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
-                    st.session_state.resultados = resultados
-                    st.session_state.sinonimos = sinonimos
-                    st.session_state.tipo_busqueda = "texto"
-            else:
-                st.warning("No hay datos para buscar")
-                
-        except Exception as e:
-            st.error(f"❌ Error en la búsqueda: {e}")
-            import traceback
-            with st.expander("🔍 Ver detalles del error"):
-                st.code(traceback.format_exc())
-    
-    st.session_state.search_time_ms = (time.time() - search_start) * 1000
+                    st.warning("No hay datos para buscar")
+                    
+            except Exception as e:
+                st.error(f"❌ Error en la búsqueda: {e}")
+                import traceback
+                with st.expander("🔍 Ver detalles del error"):
+                    st.code(traceback.format_exc())
+        
+        st.session_state.search_time_ms = (time.time() - search_start) * 1000
 
-# Si no hay consulta, limpiar resultados
-elif not consulta:
-    st.session_state.resultados = []
-    st.session_state.sinonimos = []
-    st.session_state.ultima_busqueda = ""
+    # Si no hay consulta, limpiar resultados
+    elif not consulta:
+        st.session_state.resultados = []
+        st.session_state.sinonimos = []
+        st.session_state.ultima_busqueda = ""
+
+    # =====================================================
+    # MOSTRAR RESULTADOS
+    # =====================================================
+    
+    resultados = st.session_state.resultados
+    sinonimos = st.session_state.sinonimos
+    tipo_busqueda = st.session_state.get("tipo_busqueda", "texto")
+    search_time_ms = st.session_state.get("search_time_ms", 0)
+
+    if resultados:
+        # Métricas
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("📊 Resultados", len(resultados))
+        col2.metric("🔍 Método", "Híbrido")
+        col3.metric("🔗 Sinónimos", len(sinonimos))
+        col4.metric("⏱️ Tiempo", f"{search_time_ms:.0f} ms" if search_time_ms > 0 else "< 100 ms")
+        
+        # Exportar
+        if st.button("📥 Exportar a Excel"):
+            export_data = []
+            for score, exacto, fila in resultados:
+                export_data.append({
+                    "Tipo": "Exacta" if exacto else "Relacionada",
+                    "Score": round(score, 2),
+                    "Código UNSPSC": fila["Código UNSPSC"],
+                    "Descripción": fila["Descripción"],
+                    "Segmento": fila["Segmento"],
+                    "Familia": fila["Familia"],
+                    "Clase": fila["Clase"]
+                })
+            df_export = pd.DataFrame(export_data)
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                df_export.to_excel(writer, index=False)
+            st.download_button(
+                "📥 Descargar Excel",
+                output.getvalue(),
+                file_name=f"resultados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        
+        st.subheader(f"📋 Resultados encontrados: {len(resultados)}")
+        
+        # Paginación
+        items_por_pagina = 10
+        total_items = len(resultados)
+        total_paginas = (total_items + items_por_pagina - 1) // items_por_pagina
+        
+        if st.session_state.pagina_actual < 1:
+            st.session_state.pagina_actual = 1
+        if st.session_state.pagina_actual > total_paginas and total_paginas > 0:
+            st.session_state.pagina_actual = total_paginas
+        
+        inicio = (st.session_state.pagina_actual - 1) * items_por_pagina
+        fin = min(inicio + items_por_pagina, total_items)
+        resultados_pagina = resultados[inicio:fin]
+        
+        # Controles de paginación (con keys únicas)
+        if total_paginas > 1:
+            col_prev, col_info, col_next = st.columns([1, 3, 1])
+            with col_prev:
+                if st.button("◀ Anterior", use_container_width=True, key="prev_top"):
+                    if st.session_state.pagina_actual > 1:
+                        st.session_state.pagina_actual -= 1
+            with col_info:
+                st.markdown(f"<p style='text-align:center;color:#6b7280;'>Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)</p>", unsafe_allow_html=True)
+            with col_next:
+                if st.button("Siguiente ▶", use_container_width=True, key="next_top"):
+                    if st.session_state.pagina_actual < total_paginas:
+                        st.session_state.pagina_actual += 1
+        
+        # Mostrar resultados con expander
+        rank = inicio + 1
+        for score, exacto, fila in resultados_pagina:
+            mostrar_resultado(score, fila, rank)
+            rank += 1
+        
+        # Controles de paginación (abajo con keys únicas)
+        if total_paginas > 1:
+            st.divider()
+            col_prev, col_info, col_next = st.columns([1, 3, 1])
+            with col_prev:
+                if st.button("◀ Anterior", use_container_width=True, key="prev_bottom"):
+                    if st.session_state.pagina_actual > 1:
+                        st.session_state.pagina_actual -= 1
+            with col_info:
+                st.markdown(f"<p style='text-align:center;color:#6b7280;'>Página {st.session_state.pagina_actual} de {total_paginas}</p>", unsafe_allow_html=True)
+            with col_next:
+                if st.button("Siguiente ▶", use_container_width=True, key="next_bottom"):
+                    if st.session_state.pagina_actual < total_paginas:
+                        st.session_state.pagina_actual += 1
+
+    elif consulta:
+        st.info("ℹ️ No se encontraron resultados para esta búsqueda.")
+        st.caption("Sugerencias: prueba con sinónimos o términos más generales.")
+
+    # =====================================================
+    # FOOTER
+    # =====================================================
+    st.markdown("""
+    <div class="footer">
+        © 2026, todos los derechos reservados. | BUSCADOR UNSPSC DGCP
+    </div>
+    """, unsafe_allow_html=True)
 
 # =====================================================
-# MOSTRAR RESULTADOS
+# PUNTO DE ENTRADA
 # =====================================================
 
-resultados = st.session_state.resultados
-sinonimos = st.session_state.sinonimos
-tipo_busqueda = st.session_state.get("tipo_busqueda", "texto")
-search_time_ms = st.session_state.get("search_time_ms", 0)
-
-if resultados:
-    # Métricas
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("📊 Resultados", len(resultados))
-    col2.metric("🔍 Método", "Híbrido")
-    col3.metric("🔗 Sinónimos", len(sinonimos))
-    col4.metric("⏱️ Tiempo", f"{search_time_ms:.0f} ms" if search_time_ms > 0 else "< 100 ms")
-    
-    # Exportar
-    if st.button("📥 Exportar a Excel"):
-        export_data = []
-        for score, exacto, fila in resultados:
-            export_data.append({
-                "Tipo": "Exacta" if exacto else "Relacionada",
-                "Score": round(score, 2),
-                "Código UNSPSC": fila["Código UNSPSC"],
-                "Descripción": fila["Descripción"],
-                "Segmento": fila["Segmento"],
-                "Familia": fila["Familia"],
-                "Clase": fila["Clase"]
-            })
-        df_export = pd.DataFrame(export_data)
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            df_export.to_excel(writer, index=False)
-        st.download_button(
-            "📥 Descargar Excel",
-            output.getvalue(),
-            file_name=f"resultados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    
-    st.subheader(f"📋 Resultados encontrados: {len(resultados)}")
-    
-    # Paginación
-    items_por_pagina = 10
-    total_items = len(resultados)
-    total_paginas = (total_items + items_por_pagina - 1) // items_por_pagina
-    
-    if st.session_state.pagina_actual < 1:
-        st.session_state.pagina_actual = 1
-    if st.session_state.pagina_actual > total_paginas and total_paginas > 0:
-        st.session_state.pagina_actual = total_paginas
-    
-    inicio = (st.session_state.pagina_actual - 1) * items_por_pagina
-    fin = min(inicio + items_por_pagina, total_items)
-    resultados_pagina = resultados[inicio:fin]
-    
-    # Controles de paginación (con keys únicas)
-    if total_paginas > 1:
-        col_prev, col_info, col_next = st.columns([1, 3, 1])
-        with col_prev:
-            if st.button("◀ Anterior", use_container_width=True, key="prev_top"):
-                if st.session_state.pagina_actual > 1:
-                    st.session_state.pagina_actual -= 1
-        with col_info:
-            st.markdown(f"<p style='text-align:center;color:#6b7280;'>Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)</p>", unsafe_allow_html=True)
-        with col_next:
-            if st.button("Siguiente ▶", use_container_width=True, key="next_top"):
-                if st.session_state.pagina_actual < total_paginas:
-                    st.session_state.pagina_actual += 1
-    
-    # Mostrar resultados con expander
-    rank = inicio + 1
-    for score, exacto, fila in resultados_pagina:
-        mostrar_resultado(score, fila, rank)
-        rank += 1
-    
-    # Controles de paginación (abajo con keys únicas)
-    if total_paginas > 1:
-        st.divider()
-        col_prev, col_info, col_next = st.columns([1, 3, 1])
-        with col_prev:
-            if st.button("◀ Anterior", use_container_width=True, key="prev_bottom"):
-                if st.session_state.pagina_actual > 1:
-                    st.session_state.pagina_actual -= 1
-        with col_info:
-            st.markdown(f"<p style='text-align:center;color:#6b7280;'>Página {st.session_state.pagina_actual} de {total_paginas}</p>", unsafe_allow_html=True)
-        with col_next:
-            if st.button("Siguiente ▶", use_container_width=True, key="next_bottom"):
-                if st.session_state.pagina_actual < total_paginas:
-                    st.session_state.pagina_actual += 1
-
-elif consulta:
-    st.info("ℹ️ No se encontraron resultados para esta búsqueda.")
-    st.caption("Sugerencias: prueba con sinónimos o términos más generales.")
-
-# =====================================================
-# FOOTER
-# =====================================================
-
-st.markdown("""
-<div class="footer">
-    © 2026, todos los derechos reservados. | BUSCADOR UNSPSC DGCP
-</div>
-""", unsafe_allow_html=True)
+if __name__ == "__main__":
+    main()
