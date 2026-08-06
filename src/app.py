@@ -585,7 +585,7 @@ def main():
                     else:
                         embeddings = cargar_embeddings()
                         sinonimos_dict = cargar_sinonimos()
-                        sinonimos = sinonimos_dict.get(normalizar(consulta), [])
+                        sinonimos = sinonimos_dict.get(consulta, [])
                         resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
                         st.session_state.resultados = resultados
                         st.session_state.sinonimos = sinonimos

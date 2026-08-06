@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Módulo de base de datos para UNSPSC DGCP Buscador
 """
@@ -85,9 +84,7 @@ class DatabaseManager:
                 # Usar la columna 'Código' como identificador
                 df['codigo_familia'] = df['Código'].astype(str).str.strip()
                 
-                # Las columnas ya se llaman 'cuenta_digepres' y 'descripcion_digepres'
                 if 'cuenta_digepres' in df.columns and 'descripcion_digepres' in df.columns:
-                    # Limpiar datos
                     df_clean = df[['codigo_familia', 'cuenta_digepres', 'descripcion_digepres']].copy()
                     df_clean = df_clean.dropna(subset=['codigo_familia', 'cuenta_digepres'])
                     df_clean = df_clean.drop_duplicates(subset=['codigo_familia'])
@@ -125,21 +122,25 @@ class DatabaseManager:
     
     @st.cache_data
     def cargar_sinonimos(_self):
-        """Carga los sinónimos de la base de datos"""
+        """
+        Carga los sinónimos de la base de datos.
+        SIN normalizar para preservar tildes y mayúsculas.
+        """
         try:
             conn = _self.conectar()
             df = pd.read_sql("SELECT termino, sinonimo FROM sinonimos", conn)
             conn.close()
             dic = {}
             for _, row in df.iterrows():
-                t = _self.normalizar(row["termino"])
-                s = _self.normalizar(row["sinonimo"])
-                if t not in dic:
-                    dic[t] = []
-                if s not in dic[t]:
-                    dic[t].append(s)
+                termino = row["termino"].strip()
+                sinonimo = row["sinonimo"].strip()
+                if termino not in dic:
+                    dic[termino] = []
+                if sinonimo not in dic[termino]:
+                    dic[termino].append(sinonimo)
             return dic
-        except:
+        except Exception as e:
+            print(f"Error cargando sinónimos: {e}")
             return {}
     
     def obtener_digepres(self, codigo_familia, descripcion_item=None):
@@ -150,7 +151,6 @@ class DatabaseManager:
         # 1. BUSCAR EN equivalencias_digepres (cargado desde CSV)
         if codigo_familia and self.equivalencias_digepres is not None and not self.equivalencias_digepres.empty:
             try:
-                # Buscar por código (que es el Código UNSPSC)
                 fila = self.equivalencias_digepres[
                     self.equivalencias_digepres['codigo_familia'].astype(str).str.strip() == str(codigo_familia).strip()
                 ]
