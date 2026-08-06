@@ -587,7 +587,7 @@ def main():
                         # =====================================================
                         # DEBUG: Mostrar sinónimos antes de la búsqueda
                         # =====================================================
-                        st.write(f"🔍 DEBUG: consulta={consulta}, sinonimos={sinonimos}")
+                        
                         
                         resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
                         st.session_state.resultados = resultados
