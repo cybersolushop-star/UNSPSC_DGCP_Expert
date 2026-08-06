@@ -30,7 +30,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILOS CSS PERSONALIZADOS (EMULACIÓN DGCP)
+# ESTILOS CSS PERSONALIZADOS
 # =====================================================
 
 def inject_custom_css():
@@ -38,48 +38,54 @@ def inject_custom_css():
     st.markdown("""
     <style>
         /* =====================================================
-           ESTILOS GENERALES (EMULACIÓN DGCP)
+           ESTILOS GENERALES (Mantener fondo original)
            ===================================================== */
         .main {
-            background-color: #f8f9fa;
+            background-color: #0e1117 !important;
         }
         
         /* =====================================================
            HEADER
            ===================================================== */
         .dgcp-header {
-            background-color: #fbfbfb;
-            border-bottom: 1px solid #dbeafe;
+            background-color: #1a1a2e;
+            border-bottom: 1px solid #2d2d44;
             padding: 16px 32px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-        }
-        .dgcp-header .logo {
-            height: 56px;
-            width: auto;
-            mix-blend-mode: multiply;
+            border-radius: 12px;
+            margin: 8px 16px;
         }
         .dgcp-header h1 {
             font-size: 20px;
             font-weight: 600;
-            color: #1a3a5c;
+            color: #ffffff;
             text-align: center;
+            margin: 0;
         }
         .dgcp-header p {
             font-size: 14px;
-            color: #64748b;
+            color: #94a3b8;
             text-align: center;
-            margin-top: 4px;
+            margin: 4px 0 0 0;
+        }
+        .dgcp-header .logo-text {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 28px;
+        }
+        .dgcp-header .logo-text span {
+            color: #e8b931;
         }
         
         /* =====================================================
-           BARRA DE BÚSQUEDA
+           BARRA DE BÚSQUEDA (Solo el input, sin fondo adicional)
            ===================================================== */
         .search-container {
             max-width: 896px;
-            margin: 0 auto;
-            padding: 32px 16px 8px 16px;
+            margin: 16px auto 8px auto;
+            padding: 0 16px;
         }
         .search-wrapper {
             display: flex;
@@ -97,29 +103,29 @@ def inject_custom_css():
             transform: translateY(-50%);
             width: 20px;
             height: 20px;
-            color: #6b7280;
+            color: #64748b;
             pointer-events: none;
         }
         .search-input {
             width: 100%;
             height: 56px;
             border-radius: 12px;
-            border: 1px solid #d1d5db;
-            background-color: white;
+            border: 1px solid #334155;
+            background-color: #1e293b;
             padding-left: 48px;
             padding-right: 48px;
             font-size: 16px;
-            color: #1a1a2e;
+            color: #f1f5f9;
             outline: none;
             transition: all 0.2s ease;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
         .search-input::placeholder {
-            color: #9ca3af;
+            color: #64748b;
         }
         .search-input:focus {
-            border-color: #1a5276;
-            box-shadow: 0 0 0 3px rgba(26, 82, 118, 0.2);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
         .search-clear-btn {
             position: absolute;
@@ -128,15 +134,15 @@ def inject_custom_css():
             transform: translateY(-50%);
             border-radius: 9999px;
             padding: 4px;
-            color: #6b7280;
+            color: #64748b;
             background: none;
             border: none;
             cursor: pointer;
             transition: all 0.2s ease;
         }
         .search-clear-btn:hover {
-            background-color: #f3f4f6;
-            color: #1a1a2e;
+            background-color: #334155;
+            color: #f1f5f9;
         }
         .search-btn {
             height: 56px;
@@ -149,22 +155,15 @@ def inject_custom_css():
             border: none;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
             white-space: nowrap;
             display: flex;
             align-items: center;
             gap: 8px;
         }
         .search-btn:hover {
-            box-shadow: 0 4px 12px rgba(26, 82, 118, 0.3);
+            box-shadow: 0 4px 12px rgba(26, 82, 118, 0.4);
             transform: translateY(-1px);
-        }
-        .search-btn:active {
-            transform: translateY(0);
-        }
-        .search-btn svg {
-            width: 20px;
-            height: 20px;
         }
         .search-btn .btn-text {
             display: none;
@@ -188,24 +187,28 @@ def inject_custom_css():
             justify-content: center;
             gap: 12px;
         }
-        .filter-select {
-            width: 220px;
-            height: 36px;
-            border-radius: 6px;
-            border: 1px solid #d1d5db;
-            background: white;
-            padding: 0 12px;
-            font-size: 14px;
-            color: #1a1a2e;
-            outline: none;
+        
+        /* =====================================================
+           OCULTAR EL INPUT DE STREAMLIT
+           ===================================================== */
+        .stTextInput > label {
+            display: none !important;
         }
-        .filter-select:focus {
-            border-color: #1a5276;
-            box-shadow: 0 0 0 3px rgba(26, 82, 118, 0.1);
+        .stTextInput > div {
+            padding: 0 !important;
+        }
+        .stTextInput > div > div {
+            display: none !important;
+        }
+        .stTextInput > div > div > input {
+            display: none !important;
+        }
+        .st-emotion-cache-1y4p8pa {
+            padding: 0 !important;
         }
         
         /* =====================================================
-           RESULTADOS
+           RESULTADOS - ESTILO OSCURO
            ===================================================== */
         .results-header {
             max-width: 1280px;
@@ -215,21 +218,18 @@ def inject_custom_css():
         .results-header h2 {
             font-size: 24px;
             font-weight: 700;
-            color: #1a1a2e;
+            color: #f1f5f9;
         }
         .results-header p {
             font-size: 14px;
-            color: #6b7280;
+            color: #94a3b8;
             margin-top: 4px;
         }
         
-        /* =====================================================
-           TARJETA DE RESULTADO
-           ===================================================== */
         .result-card {
             border-radius: 16px;
-            border: 1px solid rgba(26, 82, 118, 0.2);
-            background: white;
+            border: 1px solid #2d2d44;
+            background: #1a1a2e;
             padding: 28px;
             margin-bottom: 12px;
             transition: box-shadow 0.2s ease;
@@ -238,7 +238,8 @@ def inject_custom_css():
             margin-right: auto;
         }
         .result-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border-color: #3b82f6;
         }
         .result-card .rank {
             display: flex;
@@ -257,72 +258,105 @@ def inject_custom_css():
             align-items: center;
             gap: 8px;
             border-radius: 9999px;
-            background: #eff6ff;
+            background: #1e293b;
             padding: 6px 16px;
             font-size: 14px;
-            color: #1d4ed8;
+            color: #60a5fa;
         }
         .result-card .code-badge .code {
             font-family: monospace;
             font-weight: 600;
+            color: #93c5fd;
         }
         .result-card .title {
             font-size: 24px;
             font-weight: 700;
-            color: #1a1a2e;
+            color: #f1f5f9;
             margin: 16px 0;
         }
         .result-card .hierarchy-box {
             border-radius: 12px;
-            border: 1px solid #dbeafe;
-            background: rgba(219, 234, 254, 0.4);
+            border: 1px solid #2d2d44;
+            background: #0f172a;
             padding: 20px;
             margin-bottom: 16px;
         }
         .result-card .hierarchy-box .row {
             font-size: 16px;
             padding: 4px 0;
-            color: #1a1a2e;
+            color: #f1f5f9;
         }
         .result-card .hierarchy-box .row .label {
             font-weight: 600;
+            color: #94a3b8;
         }
         .result-card .hierarchy-box .row .value {
-            color: #4b5563;
+            color: #e2e8f0;
         }
         .result-card .hierarchy-box .budget {
-            border-top: 1px solid #e5e7eb;
+            border-top: 1px solid #334155;
             padding-top: 12px;
             margin-top: 12px;
             font-size: 16px;
         }
         .result-card .hierarchy-box .budget .label {
             font-weight: 600;
+            color: #94a3b8;
         }
         .result-card .hierarchy-box .budget .value {
-            color: #4b5563;
+            color: #e2e8f0;
         }
         .result-card .definition {
             font-size: 16px;
             font-style: italic;
-            color: #4b5563;
+            color: #94a3b8;
             margin-bottom: 16px;
             line-height: 1.6;
         }
         .result-card .synonyms-title {
             font-size: 16px;
             font-weight: 600;
-            color: #1a1a2e;
+            color: #f1f5f9;
             margin-bottom: 8px;
         }
         .result-card .synonym-badge {
             border-radius: 9999px;
-            background: #ecfdf5;
+            background: #1e293b;
             padding: 6px 16px;
             font-size: 14px;
-            color: #065f46;
+            color: #86efac;
             display: inline-block;
             margin: 4px 4px 4px 0;
+            border: 1px solid #166534;
+        }
+        
+        /* =====================================================
+           MÉTRICAS
+           ===================================================== */
+        .metrics-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 8px 16px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+        .metric-card {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 12px 16px;
+            border: 1px solid #2d2d44;
+            text-align: center;
+        }
+        .metric-card .value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #60a5fa;
+        }
+        .metric-card .label {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 2px;
         }
         
         /* =====================================================
@@ -332,7 +366,7 @@ def inject_custom_css():
             max-width: 1280px;
             margin: 24px auto 0 auto;
             padding: 0 16px 48px 16px;
-            border-top: 1px solid #e5e7eb;
+            border-top: 1px solid #2d2d44;
             padding-top: 24px;
         }
         .related-section h3 {
@@ -341,11 +375,11 @@ def inject_custom_css():
             gap: 8px;
             font-size: 18px;
             font-weight: 600;
-            color: #1a1a2e;
+            color: #f1f5f9;
         }
         .related-section .subtitle {
             font-size: 14px;
-            color: #6b7280;
+            color: #94a3b8;
             margin-top: 4px;
         }
         .related-grid {
@@ -365,9 +399,9 @@ def inject_custom_css():
             }
         }
         .related-item {
-            border: 1px solid rgba(26, 82, 118, 0.25);
+            border: 1px solid #2d2d44;
             border-radius: 12px;
-            background: white;
+            background: #1a1a2e;
             padding: 16px;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -375,8 +409,8 @@ def inject_custom_css():
         }
         .related-item:hover {
             transform: translateY(-2px);
-            border-color: #1a5276;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
         .related-item .rank {
             display: inline-flex;
@@ -393,7 +427,7 @@ def inject_custom_css():
         .related-item .title {
             font-size: 14px;
             font-weight: 600;
-            color: #1a1a2e;
+            color: #f1f5f9;
             margin: 8px 0;
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -403,16 +437,16 @@ def inject_custom_css():
         .related-item .code {
             display: inline-block;
             border-radius: 9999px;
-            background: #eff6ff;
+            background: #1e293b;
             padding: 2px 10px;
             font-size: 12px;
             font-family: monospace;
-            color: #1d4ed8;
+            color: #60a5fa;
         }
         .related-item .action {
             font-size: 12px;
             font-weight: 500;
-            color: #1a5276;
+            color: #60a5fa;
             margin-top: 8px;
             display: block;
         }
@@ -431,73 +465,45 @@ def inject_custom_css():
         }
         .pagination-container .info {
             font-size: 14px;
-            color: #6b7280;
+            color: #94a3b8;
         }
         
         /* =====================================================
-           MÉTRICAS
+           FOOTER
            ===================================================== */
-        .metrics-container {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 8px 16px;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-        }
-        .metric-card {
-            background: white;
-            border-radius: 8px;
-            padding: 12px 16px;
-            border: 1px solid #e5e7eb;
-            text-align: center;
-        }
-        .metric-card .value {
-            font-size: 20px;
-            font-weight: 700;
-            color: #1a5276;
-        }
-        .metric-card .label {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 2px;
-        }
-        
-        /* =====================================================
-            OCULTAR ELEMENTOS DE STREAMLIT
-            ===================================================== */
-        .stTextInput > label {
-            display: none !important;
-        }
-        .stTextInput > div {
-            padding: 0 !important;
-        }
-        .stTextInput > div > div {
-            display: none !important;
-        }
-        .stTextInput > div > div > input {
-            display: none !important;
-        }
-        .st-emotion-cache-1y4p8pa {
-            padding: 0 !important;
-        }
-        .stSelectbox > label {
-            display: none !important;
-        }
-        
-        /* =====================================================
-            FOOTER
-            ===================================================== */
         .dgcp-footer {
             text-align: center;
             padding: 24px 16px;
-            border-top: 1px solid #dbeafe;
-            background: white;
+            border-top: 1px solid #2d2d44;
+            background: #0f172a;
             margin-top: 24px;
+            border-radius: 12px;
+            margin: 24px 16px 8px 16px;
         }
         .dgcp-footer .text {
             font-size: 14px;
-            color: #6b7280;
+            color: #64748b;
+        }
+        
+        /* =====================================================
+           BOTONES DE STREAMLIT EN MODO OSCURO
+           ===================================================== */
+        .stButton > button {
+            background: #1e293b !important;
+            color: #f1f5f9 !important;
+            border: 1px solid #334155 !important;
+        }
+        .stButton > button:hover {
+            background: #334155 !important;
+            border-color: #3b82f6 !important;
+        }
+        .stSelectbox > div > div {
+            background: #1e293b !important;
+            color: #f1f5f9 !important;
+            border-color: #334155 !important;
+        }
+        .stSelectbox > div > div:hover {
+            border-color: #3b82f6 !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -517,23 +523,16 @@ def normalizar(texto):
 # =====================================================
 
 def buscar_por_codigo(df, consulta):
-    """
-    Busca ítems por código UNSPSC.
-    Soporta búsqueda exacta y parcial.
-    """
     consulta_limpia = re.sub(r"\s+", "", consulta).strip()
     
-    # Intentar coincidencia exacta
     resultado_exacto = df[df["Código UNSPSC"].astype(str) == consulta_limpia]
     if not resultado_exacto.empty:
         return resultado_exacto
     
-    # Intentar coincidencia parcial (códigos que comiencen con el número)
     resultado_parcial = df[df["Código UNSPSC"].astype(str).str.startswith(consulta_limpia)]
     if not resultado_parcial.empty:
         return resultado_parcial
     
-    # Intentar coincidencia que contenga el número en cualquier parte
     resultado_contiene = df[df["Código UNSPSC"].astype(str).str.contains(consulta_limpia, na=False)]
     if not resultado_contiene.empty:
         return resultado_contiene
@@ -541,23 +540,14 @@ def buscar_por_codigo(df, consulta):
     return pd.DataFrame()
 
 def es_busqueda_por_codigo(consulta):
-    """
-    Detecta si la consulta parece ser un código UNSPSC.
-    """
     consulta_limpia = re.sub(r"\s+", "", consulta).strip()
-    
     if re.match(r"^\d{8,}$", consulta_limpia):
         return True
     if re.match(r"^[\d\-]+$", consulta_limpia):
         return True
-    
     return False
 
 def es_busqueda_por_cuenta(consulta):
-    """
-    Detecta si la consulta parece ser una cuenta DIGEPRES.
-    Formato: X.X.X.X.XX (ej: 2.3.9.4.01)
-    """
     consulta_limpia = consulta.strip()
     return bool(re.match(r'^\d+\.\d+\.\d+\.\d+\.\d+$', consulta_limpia))
 
@@ -574,7 +564,6 @@ def cargar_catalogo():
 
 @st.cache_data
 def cargar_catalogo_con_digepres():
-    """Carga el catálogo con DIGEPRES desde catalogo_final.csv"""
     try:
         csv_path = Path("data/catalogo_final.csv")
         if csv_path.exists():
@@ -591,9 +580,7 @@ def cargar_catalogo_con_digepres():
 
 @st.cache_data
 def cargar_embeddings():
-    """Carga embeddings desde archivo .pt"""
     data = torch.load("db/embeddings.pt", map_location="cpu")
-    
     if isinstance(data, dict):
         if 'embeddings' in data:
             return data['embeddings']
@@ -601,15 +588,12 @@ def cargar_embeddings():
             for key, value in data.items():
                 if isinstance(value, torch.Tensor):
                     return value
-    
     if isinstance(data, torch.Tensor):
         return data
-    
     raise ValueError(f"Formato de embeddings no soportado: {type(data)}")
 
 @st.cache_resource
 def cargar_modelo():
-    """Carga el modelo de embeddings (cacheado en memoria para no recargar cada vez)"""
     from sentence_transformers import SentenceTransformer
     return SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
@@ -631,15 +615,7 @@ def cargar_sinonimos():
     except:
         return {}
 
-# =====================================================
-# FUNCIÓN DE CONFIANZA (como en la DGCP)
-# =====================================================
-
 def calcular_confianza(score):
-    """
-    Calcula el nivel de confianza basado en el score.
-    HIGH: > 0.70, MEDIUM: 0.40-0.70, LOW: < 0.40
-    """
     if score >= 0.70:
         return "HIGH"
     elif score >= 0.40:
@@ -648,7 +624,7 @@ def calcular_confianza(score):
         return "LOW"
 
 # =====================================================
-# BUSCADOR HÍBRIDO OPTIMIZADO
+# BUSCADOR HÍBRIDO
 # =====================================================
 
 def buscar_hibrido(df, embeddings, consulta, sinonimos):
@@ -660,14 +636,12 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     
     consulta_norm = normalizar(consulta)
     
-    # Extraer palabras clave (sin stopwords)
     stopwords = {'de', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas',
                  'para', 'por', 'con', 'sin', 'sobre', 'entre', 'hasta', 'desde',
                  'del', 'al', 'lo', 'le', 'les', 'se', 'me', 'te', 'nos', 'os',
                  'y', 'o', 'u', 'ni', 'que', 'como', 'cuando', 'donde', 'cual'}
     
     palabras_clave = [p for p in consulta_norm.split() if len(p) > 2 and p not in stopwords]
-    
     terminos = [consulta_norm] + sinonimos + palabras_clave
     
     emb_consulta = modelo.encode(consulta_norm, convert_to_tensor=True, show_progress_bar=False)
@@ -711,7 +685,6 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
         
         fuzzy = (fuzzy_desc * 0.6) + (fuzzy_def * 0.2) + (fuzzy_ctx * 0.2)
         
-        # Coincidencia de palabras clave
         palabras_en_desc = sum(1 for p in palabras_clave if p in desc)
         palabras_en_def = sum(1 for p in palabras_clave if p in definicion)
         
@@ -748,7 +721,7 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     return resultados[:200]
 
 # =====================================================
-# MOSTRAR RESULTADO (ESTILO DGCP)
+# MOSTRAR RESULTADO (ESTILO OSCURO)
 # =====================================================
 
 def mostrar_resultado(score, fila, rank, tipo_busqueda="texto"):
@@ -762,45 +735,31 @@ def mostrar_resultado(score, fila, rank, tipo_busqueda="texto"):
     nivel_confianza = calcular_confianza(score_normalizado)
     
     if nivel_confianza == "HIGH":
-        confianza_emoji = "🟢"
-        confianza_texto = "Alta"
+        confianza_texto = "🟢 Alta"
     elif nivel_confianza == "MEDIUM":
-        confianza_emoji = "🟡"
-        confianza_texto = "Media"
+        confianza_texto = "🟡 Media"
     else:
-        confianza_emoji = "🔴"
-        confianza_texto = "Baja"
+        confianza_texto = "🔴 Baja"
     
-    # Extraer código de segmento, familia y clase de los nombres
-    segmento = fila['Segmento']
-    familia = fila['Familia']
-    clase = fila['Clase']
-    
-    # Extraer códigos numéricos de los textos (si están disponibles)
     codigo_completo = str(fila['Código UNSPSC'])
-    codigo_familia = codigo_completo[:4] if len(codigo_completo) >= 4 else ""
-    codigo_clase = codigo_completo[:6] if len(codigo_completo) >= 6 else ""
     
-    # Construir HTML del resultado
     html = f"""
     <div class="result-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <span class="code-badge">
                 Código Subclase: <span class="code">{codigo_completo}</span>
-                <button type="button" style="cursor:pointer;opacity:0.5;background:none;border:none;" onclick="navigator.clipboard.writeText('{codigo_completo}')">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                </button>
             </span>
             <span class="rank">{rank}</span>
         </div>
         <h3 class="title">{fila['Descripción']}</h3>
         <div class="hierarchy-box">
-            <div class="row"><span class="label">Segmento:</span> <span class="value">{segmento}</span></div>
-            <div class="row"><span class="label">Familia:</span> <span class="value">{familia}</span></div>
-            <div class="row"><span class="label">Clase:</span> <span class="value">{clase}</span></div>
+            <div class="row"><span class="label">Segmento:</span> <span class="value">{fila['Segmento']}</span></div>
+            <div class="row"><span class="label">Familia:</span> <span class="value">{fila['Familia']}</span></div>
+            <div class="row"><span class="label">Clase:</span> <span class="value">{fila['Clase']}</span></div>
             <div class="budget">
                 <span class="label">Cuenta Presupuestaria:</span>
                 <span class="value">{cuenta if cuenta else 'No asignada'} {f' - {descripcion}' if cuenta and descripcion else ''}</span>
+                <span style="margin-left:12px;font-size:14px;color:#94a3b8;">{confianza_texto}</span>
             </div>
         </div>
         <p class="definition">{fila.get('Definición', 'No hay definición disponible')[:300]}{'...' if len(str(fila.get('Definición', ''))) > 300 else ''}</p>
@@ -809,7 +768,6 @@ def mostrar_resultado(score, fila, rank, tipo_busqueda="texto"):
             <div>
     """
     
-    # Agregar sinónimos desde la base de datos
     try:
         conn = sqlite3.connect("db/DGCP_UNSPSC.db")
         cur = conn.cursor()
@@ -825,9 +783,9 @@ def mostrar_resultado(score, fila, rank, tipo_busqueda="texto"):
             for s in sinonimos_list:
                 html += f'<span class="synonym-badge">{s[0]}</span>'
         else:
-            html += '<span class="synonym-badge" style="background:#f3f4f6;color:#6b7280;">No hay sinónimos registrados</span>'
+            html += '<span class="synonym-badge" style="background:#1e293b;color:#94a3b8;border-color:#334155;">No hay sinónimos registrados</span>'
     except:
-        html += '<span class="synonym-badge" style="background:#f3f4f6;color:#6b7280;">No hay sinónimos registrados</span>'
+        html += '<span class="synonym-badge" style="background:#1e293b;color:#94a3b8;border-color:#334155;">No hay sinónimos registrados</span>'
     
     html += """
             </div>
@@ -838,27 +796,24 @@ def mostrar_resultado(score, fila, rank, tipo_busqueda="texto"):
     st.markdown(html, unsafe_allow_html=True)
 
 # =====================================================
-# PRODUCTOS RELACIONADOS (ESTILO DGCP)
+# PRODUCTOS RELACIONADOS
 # =====================================================
 
 def mostrar_productos_relacionados(df, codigo_actual, fila_actual):
-    """Muestra productos relacionados en el estilo de la DGCP"""
     try:
-        # Intentar obtener la familia del ítem actual
         familia_actual = fila_actual.get('Familia', '')
         if not familia_actual:
             return
         
-        # Buscar productos de la misma familia
         relacionados = df[df['Familia'] == familia_actual].head(8)
         
         if len(relacionados) < 2:
             return
         
-        st.markdown("""
+        st.markdown(f"""
         <div class="related-section">
             <h3>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a5276" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/>
                     <path d="M12 22V12"/>
                     <polyline points="3.29 7 12 12 20.71 7"/>
@@ -866,9 +821,9 @@ def mostrar_productos_relacionados(df, codigo_actual, fila_actual):
                 </svg>
                 Productos Relacionados
             </h3>
-            <p class="subtitle">Frecuentemente comprados con <span style="font-weight:600;color:#1a1a2e;">{}</span></p>
+            <p class="subtitle">Frecuentemente comprados con <span style="font-weight:600;color:#f1f5f9;">{fila_actual.get('Descripción', '')[:40]}</span></p>
             <div class="related-grid">
-        """.format(fila_actual.get('Descripción', '')[:40]), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
         
         rank = 1
         for _, row in relacionados.iterrows():
@@ -881,7 +836,7 @@ def mostrar_productos_relacionados(df, codigo_actual, fila_actual):
             codigo = str(row.get('Código UNSPSC', ''))
             
             st.markdown(f"""
-            <div class="related-item" onclick="window.location.href='?q={codigo}'">
+            <div class="related-item">
                 <span class="rank">{rank}</span>
                 <p class="title">{desc}</p>
                 <span class="code">{codigo}</span>
@@ -921,27 +876,18 @@ if "search_time_ms" not in st.session_state:
 inject_custom_css()
 
 # =====================================================
-# HEADER (EMULACIÓN DGCP)
+# HEADER
 # =====================================================
 
 st.markdown("""
 <div class="dgcp-header">
-    <div style="display:flex;align-items:center;gap:16px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 100 100" style="mix-blend-mode:multiply;">
-            <circle cx="50" cy="50" r="48" fill="#1a5276"/>
-            <path d="M50 20 L30 40 L35 45 L50 30 L65 45 L70 40 L50 20Z" fill="white"/>
-            <path d="M50 80 L30 60 L35 55 L50 70 L65 55 L70 60 L50 80Z" fill="white"/>
-            <rect x="25" y="40" width="50" height="20" rx="4" fill="white"/>
-            <circle cx="50" cy="50" r="8" fill="#1a5276"/>
-            <circle cx="50" cy="50" r="4" fill="#e8b931"/>
-        </svg>
-        <div>
-            <h1>Sistema de Búsqueda de Catálogo UNSPSC</h1>
-            <p>18,000+ Productos y Servicios</p>
-        </div>
-    </div>
     <div>
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Escudo_de_la_Rep%C3%BAblica_Dominicana.svg/1200px-Escudo_de_la_Rep%C3%BAblica_Dominicana.svg.png" style="height:56px;width:auto;mix-blend-mode:multiply;" alt="Escudo RD">
+        <div class="logo-text">UNSPSC <span>DGCP</span></div>
+        <p>Sistema de Búsqueda de Catálogo UNSPSC</p>
+    </div>
+    <div style="text-align:right;">
+        <p style="color:#94a3b8;font-size:14px;margin:0;">18,000+ Productos y Servicios</p>
+        <p style="color:#64748b;font-size:12px;margin:0;">Catálogo Oficial de Bienes y Servicios</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1001,9 +947,19 @@ with st.sidebar:
     st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
 # =====================================================
-# BARRA DE BÚSQUEDA (ESTILO DGCP)
+# BARRA DE BÚSQUEDA CON JavaScript para sincronización
 # =====================================================
 
+# Input oculto para Streamlit (se sincroniza con JavaScript)
+consulta = st.text_input(
+    "Buscar productos por nombre, código o descripción...",
+    value=st.session_state.consulta,
+    placeholder="Buscar productos por nombre, código o descripción...",
+    key="input_busqueda",
+    label_visibility="collapsed"
+)
+
+# HTML de la barra de búsqueda (sin fondo adicional)
 st.markdown("""
 <div class="search-container">
     <div class="search-wrapper">
@@ -1031,18 +987,30 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Script para manejar el input y el botón
+# JavaScript para sincronizar el input HTML con Streamlit
 st.markdown("""
 <script>
     const input = document.getElementById('search_input');
     const clearBtn = document.getElementById('search_clear');
     const searchBtn = document.getElementById('search_button');
     
-    // Cargar valor desde session_state si existe
-    const savedValue = window.location.search ? new URLSearchParams(window.location.search).get('q') : '';
-    if (savedValue) {
-        input.value = savedValue;
-        clearBtn.style.display = 'block';
+    // Obtener el input oculto de Streamlit
+    const streamlitInput = document.querySelector('input[data-testid="stTextInput"]');
+    
+    // Función para sincronizar
+    function syncSearch() {
+        if (streamlitInput) {
+            streamlitInput.value = input.value;
+            streamlitInput.dispatchEvent(new Event('input', {bubbles: true}));
+        }
+    }
+    
+    // Cargar valor inicial desde session_state
+    if (streamlitInput) {
+        input.value = streamlitInput.value || '';
+        if (input.value.length > 0) {
+            clearBtn.style.display = 'block';
+        }
     }
     
     input.addEventListener('input', function() {
@@ -1051,16 +1019,14 @@ st.markdown("""
         } else {
             clearBtn.style.display = 'none';
         }
+        syncSearch();
     });
     
     searchBtn.addEventListener('click', function() {
-        const event = new Event('input', {bubbles: true});
-        input.dispatchEvent(event);
-        // También actualizar el input oculto de Streamlit
-        const streamlitInput = document.querySelector('input[data-testid="stTextInput"]');
+        syncSearch();
+        // Disparar evento adicional para asegurar
         if (streamlitInput) {
-            streamlitInput.value = input.value;
-            streamlitInput.dispatchEvent(new Event('input', {bubbles: true}));
+            streamlitInput.dispatchEvent(new Event('change', {bubbles: true}));
         }
     });
     
@@ -1069,20 +1035,18 @@ st.markdown("""
             searchBtn.click();
         }
     });
+    
+    // Limpiar al hacer clic en el botón X
+    document.getElementById('search_clear').addEventListener('click', function() {
+        input.value = '';
+        this.style.display = 'none';
+        syncSearch();
+    });
 </script>
 """, unsafe_allow_html=True)
 
-# Input oculto para Streamlit
-consulta = st.text_input(
-    "Buscar productos por nombre, código o descripción...",
-    value=st.session_state.consulta,
-    placeholder="Buscar productos por nombre, código o descripción...",
-    key="input_busqueda",
-    label_visibility="collapsed"
-)
-
 # =====================================================
-# FILTRO DE NIVEL (ESTILO DGCP)
+# FILTRO DE NIVEL
 # =====================================================
 
 st.markdown('<div class="filter-container">', unsafe_allow_html=True)
@@ -1173,7 +1137,7 @@ elif not consulta:
     st.session_state.sinonimos = []
 
 # =====================================================
-# MOSTRAR RESULTADOS (ESTILO DGCP)
+# MOSTRAR RESULTADOS
 # =====================================================
 
 resultados = st.session_state.resultados
@@ -1182,9 +1146,7 @@ tipo_busqueda = st.session_state.get("tipo_busqueda", "texto")
 search_time_ms = st.session_state.get("search_time_ms", 0)
 
 if resultados:
-    # =====================================================
-    # MÉTRICAS
-    # =====================================================
+    # Métricas
     st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
@@ -1219,9 +1181,7 @@ if resultados:
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # =====================================================
-    # EXPORTAR A EXCEL
-    # =====================================================
+    # Exportar
     if st.button("📥 Exportar a Excel", use_container_width=False):
         export_data = []
         for score, exacto, fila in resultados:
@@ -1245,9 +1205,7 @@ if resultados:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     
-    # =====================================================
-    # HEADER DE RESULTADOS
-    # =====================================================
+    # Header de resultados
     st.markdown(f"""
     <div class="results-header">
         <h2>Resultados de Búsqueda</h2>
@@ -1255,9 +1213,7 @@ if resultados:
     </div>
     """, unsafe_allow_html=True)
     
-    # =====================================================
-    # PAGINACIÓN
-    # =====================================================
+    # Paginación
     items_por_pagina = 8
     total_items = len(resultados)
     total_paginas = (total_items + items_por_pagina - 1) // items_por_pagina
@@ -1271,7 +1227,7 @@ if resultados:
     fin = min(inicio + items_por_pagina, total_items)
     resultados_pagina = resultados[inicio:fin]
     
-    # Controles de paginación (arriba)
+    # Controles de paginación
     if total_paginas > 1:
         col_prev, col_info, col_next = st.columns([1, 3, 1])
         with col_prev:
@@ -1279,7 +1235,7 @@ if resultados:
                 if st.session_state.pagina_actual > 1:
                     st.session_state.pagina_actual -= 1
         with col_info:
-            st.markdown(f"<div style='text-align:center;font-size:14px;color:#6b7280;'>Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:center;font-size:14px;color:#94a3b8;'>Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)</div>", unsafe_allow_html=True)
         with col_next:
             if st.button("Siguiente ▶", use_container_width=True, key="next_top"):
                 if st.session_state.pagina_actual < total_paginas:
@@ -1287,21 +1243,17 @@ if resultados:
     
     # Mostrar resultados
     rank = inicio + 1
-    exactos = [r for r in resultados_pagina if r[1]]
-    relacionados = [r for r in resultados_pagina if not r[1]]
-    
-    # Guardar el primer resultado para productos relacionados
     primer_resultado = resultados[0] if resultados else None
     
     for score, exacto, fila in resultados_pagina:
         mostrar_resultado(score, fila, rank, tipo_busqueda)
         rank += 1
     
-    # Mostrar productos relacionados (solo si hay al menos un resultado)
+    # Productos relacionados
     if primer_resultado:
         mostrar_productos_relacionados(df, primer_resultado[2]['Código UNSPSC'], primer_resultado[2])
     
-    # Controles de paginación (abajo)
+    # Controles de paginación abajo
     if total_paginas > 1:
         st.divider()
         col_prev, col_info, col_next = st.columns([1, 3, 1])
@@ -1310,7 +1262,7 @@ if resultados:
                 if st.session_state.pagina_actual > 1:
                     st.session_state.pagina_actual -= 1
         with col_info:
-            st.markdown(f"<div style='text-align:center;font-size:14px;color:#6b7280;'>Página {st.session_state.pagina_actual} de {total_paginas}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:center;font-size:14px;color:#94a3b8;'>Página {st.session_state.pagina_actual} de {total_paginas}</div>", unsafe_allow_html=True)
         with col_next:
             if st.button("Siguiente ▶", use_container_width=True, key="next_bottom"):
                 if st.session_state.pagina_actual < total_paginas:
