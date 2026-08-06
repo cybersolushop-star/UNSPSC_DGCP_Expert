@@ -527,13 +527,13 @@ if "search_time_ms" not in st.session_state:
 inject_custom_css()
 
 # =====================================================
-# ENCABEZADO ORIGINAL
+# ENCABEZADO (SIN LA PALABRA "OFICIAL")
 # =====================================================
 
 st.markdown("""
 <div class="main-header">
     <h1>🔎 BUSCADOR UNSPSC DGCP</h1>
-    <p>Catálogo Oficial de Bienes y Servicios DGCP</p>
+    <p>Catálogo de Bienes y Servicios DGCP</p>
     <p class="credits">por Rudy Pérez</p>
 </div>
 """, unsafe_allow_html=True)
@@ -593,10 +593,10 @@ with st.sidebar:
     st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
 # =====================================================
-# BARRA DE BÚSQUEDA (ÚNICA)
+# BARRA DE BÚSQUEDA (ÚNICA - CON CORRECCIÓN DE SINCRONIZACIÓN)
 # =====================================================
 
-# Input oculto para Streamlit (se sincroniza con JavaScript)
+# Input oculto para Streamlit
 consulta = st.text_input(
     "Buscar",
     value=st.session_state.consulta,
@@ -634,42 +634,50 @@ st.markdown("""
     const searchBtn = document.getElementById('search_button');
     const streamlitInput = document.querySelector('input[data-testid="stTextInput"]');
     
-    // Función para sincronizar
-    function syncSearch() {
+    // Función para sincronizar y ejecutar búsqueda
+    function executeSearch() {
         if (streamlitInput) {
+            // Actualizar el valor del input de Streamlit
             streamlitInput.value = input.value;
+            // Disparar eventos para que Streamlit detecte el cambio
             streamlitInput.dispatchEvent(new Event('input', {bubbles: true}));
             streamlitInput.dispatchEvent(new Event('change', {bubbles: true}));
+            // Forzar actualización adicional
+            setTimeout(function() {
+                streamlitInput.dispatchEvent(new Event('input', {bubbles: true}));
+                streamlitInput.dispatchEvent(new Event('change', {bubbles: true}));
+            }, 50);
         }
     }
     
-    // Cargar valor inicial
+    // Cargar valor inicial desde session_state
     if (streamlitInput && streamlitInput.value) {
         input.value = streamlitInput.value;
     }
     
-    // Eventos del input
+    // Evento: escribir en el input
     input.addEventListener('input', function() {
-        syncSearch();
+        // Solo sincronizar, no ejecutar búsqueda automática
+        if (streamlitInput) {
+            streamlitInput.value = input.value;
+            streamlitInput.dispatchEvent(new Event('input', {bubbles: true}));
+        }
     });
     
+    // Evento: tecla Enter
     input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
+            executeSearch();
+            // También hacer clic en el botón para feedback visual
             searchBtn.click();
         }
     });
     
-    // Evento del botón buscar
-    searchBtn.addEventListener('click', function() {
-        syncSearch();
-        // Forzar actualización
-        setTimeout(function() {
-            if (streamlitInput) {
-                streamlitInput.dispatchEvent(new Event('input', {bubbles: true}));
-                streamlitInput.dispatchEvent(new Event('change', {bubbles: true}));
-            }
-        }, 50);
+    // Evento: clic en el botón Buscar
+    searchBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        executeSearch();
     });
 </script>
 """, unsafe_allow_html=True)
