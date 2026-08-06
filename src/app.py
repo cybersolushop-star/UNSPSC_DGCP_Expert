@@ -30,14 +30,14 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILOS CSS (CON BARRA DE BÚSQUEDA VISIBLE)
+# ESTILOS CSS
 # =====================================================
 
 def inject_custom_css():
     """Inyecta CSS personalizado"""
     st.markdown("""
     <style>
-        /* Estilos para el input de Streamlit - VISIBLE */
+        /* Ocultar el label del input de Streamlit */
         .stTextInput > label {
             display: none !important;
         }
@@ -54,8 +54,6 @@ def inject_custom_css():
             outline: none !important;
             transition: all 0.2s ease !important;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
-            width: 100% !important;
-            height: 56px !important;
         }
         .stTextInput > div > div > input:focus {
             border-color: #1a5276 !important;
@@ -163,11 +161,6 @@ def inject_custom_css():
             margin-top: 24px;
             color: #6b7280;
             font-size: 14px;
-        }
-        
-        /* Ajustes de formulario */
-        .stForm {
-            padding: 0 !important;
         }
         
         /* Selectbox en sidebar */
