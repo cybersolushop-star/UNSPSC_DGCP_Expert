@@ -429,8 +429,9 @@ def main():
     """Función principal de la aplicación"""
     
     # =====================================================
-    # INICIALIZAR SESSION STATE
+    # INICIALIZAR SESSION STATE (SEGURO)
     # =====================================================
+    # Inicializar todas las variables de session_state al inicio
     if "consulta" not in st.session_state:
         st.session_state.consulta = ""
     if "resultados" not in st.session_state:
@@ -447,7 +448,7 @@ def main():
         st.session_state.ultima_busqueda = ""
     if "search_time_ms" not in st.session_state:
         st.session_state.search_time_ms = 0
-    # --- NUEVA INICIALIZACIÓN ---
+    # --- INICIALIZACIÓN DE consulta_input ---
     if "consulta_input" not in st.session_state:
         st.session_state.consulta_input = ""
 
@@ -518,22 +519,19 @@ def main():
         st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
     # =====================================================
-    # BARRA DE BÚSQUEDA
+    # BARRA DE BÚSQUEDA (SIN on_change PARA EVITAR ERRORES)
     # =====================================================
     
-    def on_search_change():
-        st.session_state.ultima_busqueda = st.session_state.consulta_input
-
+    # Usar el valor de session_state para mantener la consistencia
     consulta = st.text_input(
         "🔎 Describa el bien o servicio, ingrese un código UNSPSC o una cuenta DIGEPRES:",
         value=st.session_state.consulta,
         placeholder="Ej: perro, computadora, 10101502, 25101503, 2.3.9.4.01...",
-        key="consulta_input",
-        on_change=on_search_change
+        key="consulta_input"
     )
 
-    # Si la consulta cambió, ejecutar búsqueda
-    if consulta and consulta != st.session_state.ultima_busqueda:
+    # Si la consulta cambió (detectado por el cambio en el widget), actualizar
+    if consulta != st.session_state.ultima_busqueda:
         st.session_state.ultima_busqueda = consulta
         st.session_state.consulta = consulta
         st.session_state.pagina_actual = 1
