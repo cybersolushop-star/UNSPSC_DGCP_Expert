@@ -30,19 +30,25 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILOS CSS (FONDO OSCURO)
+# ESTILOS CSS
 # =====================================================
 
 def inject_custom_css():
-    """Inyecta CSS personalizado con fondo oscuro"""
+    """Inyecta CSS personalizado"""
     st.markdown("""
     <style>
-        /* Fondo general oscuro */
-        .stApp {
-            background-color: #0e1117 !important;
+        /* Ocultar el input de Streamlit */
+        .stTextInput > label {
+            display: none !important;
         }
-        .main {
-            background-color: #0e1117 !important;
+        .stTextInput > div {
+            padding: 0 !important;
+        }
+        .stTextInput > div > div {
+            display: none !important;
+        }
+        .stTextInput > div > div > input {
+            display: none !important;
         }
         
         /* Barra de búsqueda */
@@ -74,22 +80,22 @@ def inject_custom_css():
             width: 100%;
             height: 56px;
             border-radius: 12px;
-            border: 1px solid #334155;
-            background-color: #1e293b;
+            border: 1px solid #d1d5db;
+            background-color: white;
             padding-left: 48px;
             padding-right: 16px;
             font-size: 16px;
-            color: #f1f5f9;
+            color: #1a1a2e;
             outline: none;
             transition: all 0.2s ease;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         .search-input::placeholder {
-            color: #64748b;
+            color: #9ca3af;
         }
         .search-input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            border-color: #1a5276;
+            box-shadow: 0 0 0 3px rgba(26, 82, 118, 0.2);
         }
         .search-btn {
             height: 56px;
@@ -109,12 +115,17 @@ def inject_custom_css():
             flex-shrink: 0;
         }
         .search-btn:hover {
-            box-shadow: 0 4px 12px rgba(26, 82, 118, 0.4);
+            box-shadow: 0 4px 12px rgba(26, 82, 118, 0.3);
             transform: translateY(-1px);
         }
         .search-btn svg {
             width: 20px;
             height: 20px;
+        }
+        
+        /* Ocultar el filtro de nivel "Todos" */
+        .filter-container {
+            display: none !important;
         }
         
         /* Ajustes generales */
@@ -123,121 +134,132 @@ def inject_custom_css():
             padding: 20px 0 10px 0;
         }
         .main-header h1 {
-            color: #f1f5f9;
+            color: #1a5276;
             font-size: 2.5rem;
             font-weight: 700;
             margin: 0;
         }
         .main-header p {
-            color: #94a3b8;
+            color: #5d6d7e;
             font-size: 1.1rem;
             margin: 4px 0 0 0;
         }
         .main-header .credits {
-            color: #64748b;
+            color: #5d6d7e;
             font-size: 0.9rem;
             font-style: italic;
             margin: 4px 0 0 0;
         }
         
-        /* Expander de resultados */
-        .stExpander {
-            background-color: #1a1a2e !important;
-            border: 1px solid #2d2d44 !important;
-            border-radius: 12px !important;
-            margin-bottom: 12px !important;
+        /* Resultados */
+        .result-card {
+            border-radius: 12px;
+            border: 1px solid #e8e8e8;
+            background: white;
+            padding: 20px;
+            margin-bottom: 12px;
+            transition: box-shadow 0.2s ease;
         }
-        .stExpander > div:first-child {
-            background-color: #1a1a2e !important;
-            border-radius: 12px !important;
+        .result-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
-        .stExpander > div:first-child:hover {
-            background-color: #2d2d44 !important;
+        .result-card .title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a5276;
+            margin: 8px 0;
         }
-        .stExpander > div:first-child p {
-            color: #f1f5f9 !important;
+        .result-card .hierarchy {
+            font-size: 14px;
+            color: #4a4a4a;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 8px 0;
         }
-        .stExpander > div:last-child {
-            background-color: #1a1a2e !important;
-            border-radius: 0 0 12px 12px !important;
+        .result-card .hierarchy .label {
+            font-weight: 600;
+        }
+        .result-card .digepres {
+            background: #e8f4f8;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 8px 0;
+            border-left: 4px solid #1a5276;
+        }
+        .result-card .digepres .label {
+            font-weight: 600;
         }
         
         /* Métricas */
-        .stMetric {
-            background-color: #1a1a2e !important;
-            border: 1px solid #2d2d44 !important;
-            border-radius: 8px !important;
-            padding: 12px 16px !important;
+        .metrics-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            max-width: 1280px;
+            margin: 16px auto;
+            padding: 0 16px;
         }
-        .stMetric label {
-            color: #94a3b8 !important;
+        .metric-card {
+            background: white;
+            border-radius: 8px;
+            padding: 12px 16px;
+            border: 1px solid #e8e8e8;
+            text-align: center;
         }
-        .stMetric div {
-            color: #f1f5f9 !important;
+        .metric-card .value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a5276;
         }
-        
-        /* Botones */
-        .stButton > button {
-            background-color: #1a1a2e !important;
-            color: #f1f5f9 !important;
-            border: 1px solid #2d2d44 !important;
-            border-radius: 8px !important;
-        }
-        .stButton > button:hover {
-            background-color: #2d2d44 !important;
-            border-color: #3b82f6 !important;
-        }
-        
-        /* Texto general */
-        .stMarkdown {
-            color: #f1f5f9 !important;
-        }
-        .stSubheader {
-            color: #f1f5f9 !important;
-        }
-        .stInfo {
-            background-color: #1e293b !important;
-            border-color: #3b82f6 !important;
-            color: #f1f5f9 !important;
-        }
-        .stWarning {
-            background-color: #1e293b !important;
-            border-color: #f59e0b !important;
-            color: #f1f5f9 !important;
+        .metric-card .label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 2px;
         }
         
-        /* Sidebar */
-        [data-testid="stSidebar"] {
-            background-color: #0f172a !important;
-            border-right: 1px solid #2d2d44 !important;
+        /* Productos relacionados */
+        .related-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 12px;
         }
-        [data-testid="stSidebar"] * {
-            color: #f1f5f9 !important;
+        .related-item {
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            padding: 12px;
+            background: white;
+            transition: all 0.2s ease;
+        }
+        .related-item:hover {
+            border-color: #1a5276;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .related-item .title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a5276;
+        }
+        .related-item .code {
+            font-size: 12px;
+            color: #6b7280;
+            font-family: monospace;
         }
         
         /* Footer */
         .footer {
             text-align: center;
             padding: 20px 16px;
-            border-top: 1px solid #2d2d44;
+            border-top: 1px solid #e8e8e8;
             margin-top: 24px;
-            color: #64748b;
+            color: #6b7280;
             font-size: 14px;
         }
         
-        /* Selectbox */
-        .stSelectbox > div > div {
-            background-color: #1e293b !important;
-            border-color: #334155 !important;
-            color: #f1f5f9 !important;
-        }
-        .stSelectbox > div > div:hover {
-            border-color: #3b82f6 !important;
-        }
-        
-        /* Spinner */
-        .stSpinner > div {
-            color: #f1f5f9 !important;
+        /* Ajustes de formulario */
+        .stForm {
+            padding: 0 !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -572,28 +594,27 @@ with st.sidebar:
     st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
 # =====================================================
-# BARRA DE BÚSQUEDA CON st.form
+# BARRA DE BÚSQUEDA (CORREGIDA - BÚSQUEDA AUTOMÁTICA)
 # =====================================================
 
-with st.form(key="search_form", clear_on_submit=False):
-    col1, col2 = st.columns([5, 1])
-    
-    with col1:
-        consulta = st.text_input(
-            "Buscar",
-            value=st.session_state.consulta,
-            placeholder="Buscar productos por nombre, código o descripción...",
-            key="search_input",
-            label_visibility="collapsed"
-        )
-    
-    with col2:
-        submitted = st.form_submit_button("🔍 Buscar", use_container_width=True)
+# Función para manejar el cambio en la barra de búsqueda
+def on_search_change():
+    """Se ejecuta cuando el usuario cambia el texto en la barra de búsqueda"""
+    st.session_state.ultima_busqueda = st.session_state.consulta_input
 
-# Ejecutar búsqueda si se envió el formulario
-if submitted and consulta:
-    st.session_state.consulta = consulta
+# Barra de búsqueda
+consulta = st.text_input(
+    "🔎 Describa el bien o servicio, ingrese un código UNSPSC o una cuenta DIGEPRES:",
+    value=st.session_state.consulta,
+    placeholder="Ej: perro, computadora, 10101502, 25101503, 2.3.9.4.01...",
+    key="consulta_input",
+    on_change=on_search_change
+)
+
+# Si la consulta cambió, ejecutar búsqueda
+if consulta and consulta != st.session_state.ultima_busqueda:
     st.session_state.ultima_busqueda = consulta
+    st.session_state.consulta = consulta
     st.session_state.pagina_actual = 1
     
     search_start = time.time()
@@ -660,6 +681,12 @@ if submitted and consulta:
                 st.code(traceback.format_exc())
     
     st.session_state.search_time_ms = (time.time() - search_start) * 1000
+
+# Si no hay consulta, limpiar resultados
+elif not consulta:
+    st.session_state.resultados = []
+    st.session_state.sinonimos = []
+    st.session_state.ultima_busqueda = ""
 
 # =====================================================
 # MOSTRAR RESULTADOS
@@ -733,8 +760,10 @@ if resultados:
                     st.session_state.pagina_actual += 1
     
     # Mostrar resultados con expander
+    rank = inicio + 1
     for score, exacto, fila in resultados_pagina:
-        mostrar_resultado(score, fila, 0)
+        mostrar_resultado(score, fila, rank)
+        rank += 1
     
     # Controles de paginación (abajo con keys únicas)
     if total_paginas > 1:
