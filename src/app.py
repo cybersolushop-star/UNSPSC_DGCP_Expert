@@ -37,20 +37,6 @@ def inject_custom_css():
     """Inyecta CSS personalizado"""
     st.markdown("""
     <style>
-        /* Ocultar el input de Streamlit */
-        .stTextInput > label {
-            display: none !important;
-        }
-        .stTextInput > div {
-            padding: 0 !important;
-        }
-        .stTextInput > div > div {
-            display: none !important;
-        }
-        .stTextInput > div > div > input {
-            display: none !important;
-        }
-        
         /* Barra de búsqueda */
         .search-container {
             max-width: 896px;
@@ -83,7 +69,7 @@ def inject_custom_css():
             border: 1px solid #d1d5db;
             background-color: white;
             padding-left: 48px;
-            padding-right: 48px;
+            padding-right: 16px;
             font-size: 16px;
             color: #1a1a2e;
             outline: none;
@@ -218,35 +204,6 @@ def inject_custom_css():
             margin-top: 2px;
         }
         
-        /* Productos relacionados */
-        .related-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-top: 12px;
-        }
-        .related-item {
-            border: 1px solid #e8e8e8;
-            border-radius: 8px;
-            padding: 12px;
-            background: white;
-            transition: all 0.2s ease;
-        }
-        .related-item:hover {
-            border-color: #1a5276;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        .related-item .title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #1a5276;
-        }
-        .related-item .code {
-            font-size: 12px;
-            color: #6b7280;
-            font-family: monospace;
-        }
-        
         /* Footer */
         .footer {
             text-align: center;
@@ -255,6 +212,11 @@ def inject_custom_css():
             margin-top: 24px;
             color: #6b7280;
             font-size: 14px;
+        }
+        
+        /* Ajustes de formulario */
+        .stForm {
+            padding: 0 !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -527,7 +489,7 @@ if "search_time_ms" not in st.session_state:
 inject_custom_css()
 
 # =====================================================
-# ENCABEZADO (SIN LA PALABRA "OFICIAL")
+# ENCABEZADO
 # =====================================================
 
 st.markdown("""
@@ -593,102 +555,29 @@ with st.sidebar:
     st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
 # =====================================================
-# BARRA DE BÚSQUEDA (ÚNICA - CON CORRECCIÓN DE SINCRONIZACIÓN)
+# BARRA DE BÚSQUEDA CON st.form (FUNCIONAL)
 # =====================================================
 
-# Input oculto para Streamlit
-consulta = st.text_input(
-    "Buscar",
-    value=st.session_state.consulta,
-    placeholder="Buscar productos por nombre, código o descripción...",
-    key="input_busqueda",
-    label_visibility="collapsed"
-)
+with st.form(key="search_form", clear_on_submit=False):
+    col1, col2 = st.columns([5, 1])
+    
+    with col1:
+        consulta = st.text_input(
+            "Buscar",
+            value=st.session_state.consulta,
+            placeholder="Buscar productos por nombre, código o descripción...",
+            key="search_input",
+            label_visibility="collapsed"
+        )
+    
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)  # Espaciado para alinear
+        submitted = st.form_submit_button("🔍 Buscar", use_container_width=True)
 
-# HTML de la barra de búsqueda
-st.markdown("""
-<div class="search-container">
-    <div class="search-wrapper">
-        <div class="search-input-wrapper">
-            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.3-4.3"></path>
-            </svg>
-            <input id="search_input" class="search-input" type="text" placeholder="Buscar productos por nombre, código o descripción..." maxlength="500">
-        </div>
-        <button class="search-btn" id="search_button">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.3-4.3"></path>
-            </svg>
-            Buscar
-        </button>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# JavaScript para sincronizar el input HTML con Streamlit
-st.markdown("""
-<script>
-    const input = document.getElementById('search_input');
-    const searchBtn = document.getElementById('search_button');
-    const streamlitInput = document.querySelector('input[data-testid="stTextInput"]');
-    
-    // Función para sincronizar y ejecutar búsqueda
-    function executeSearch() {
-        if (streamlitInput) {
-            // Actualizar el valor del input de Streamlit
-            streamlitInput.value = input.value;
-            // Disparar eventos para que Streamlit detecte el cambio
-            streamlitInput.dispatchEvent(new Event('input', {bubbles: true}));
-            streamlitInput.dispatchEvent(new Event('change', {bubbles: true}));
-            // Forzar actualización adicional
-            setTimeout(function() {
-                streamlitInput.dispatchEvent(new Event('input', {bubbles: true}));
-                streamlitInput.dispatchEvent(new Event('change', {bubbles: true}));
-            }, 50);
-        }
-    }
-    
-    // Cargar valor inicial desde session_state
-    if (streamlitInput && streamlitInput.value) {
-        input.value = streamlitInput.value;
-    }
-    
-    // Evento: escribir en el input
-    input.addEventListener('input', function() {
-        // Solo sincronizar, no ejecutar búsqueda automática
-        if (streamlitInput) {
-            streamlitInput.value = input.value;
-            streamlitInput.dispatchEvent(new Event('input', {bubbles: true}));
-        }
-    });
-    
-    // Evento: tecla Enter
-    input.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            executeSearch();
-            // También hacer clic en el botón para feedback visual
-            searchBtn.click();
-        }
-    });
-    
-    // Evento: clic en el botón Buscar
-    searchBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        executeSearch();
-    });
-</script>
-""", unsafe_allow_html=True)
-
-# =====================================================
-# EJECUTAR BÚSQUEDA
-# =====================================================
-
-if consulta and consulta != st.session_state.ultima_busqueda:
-    st.session_state.ultima_busqueda = consulta
+# Actualizar consulta si se envió el formulario
+if submitted and consulta:
     st.session_state.consulta = consulta
+    st.session_state.ultima_busqueda = consulta
     st.session_state.pagina_actual = 1
     
     search_start = time.time()
@@ -756,6 +645,7 @@ if consulta and consulta != st.session_state.ultima_busqueda:
     
     st.session_state.search_time_ms = (time.time() - search_start) * 1000
 
+# Si no hay consulta, limpiar resultados
 elif not consulta:
     st.session_state.resultados = []
     st.session_state.sinonimos = []
