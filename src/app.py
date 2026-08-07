@@ -205,14 +205,24 @@ def inject_custom_css():
         }
         
         /* Logo en sidebar */
-        .sidebar-logo {
-            display: flex;
-            justify-content: center;
-            padding: 10px 0 5px 0;
+        .sidebar-logo-container {
+            text-align: center;
+            padding: 15px 0 10px 0;
+            border-bottom: 2px solid #334155;
+            margin-bottom: 15px;
         }
-        .sidebar-logo img {
-            max-width: 120px;
-            height: auto;
+        .sidebar-logo-wrapper {
+            background: white;
+            border-radius: 15px;
+            padding: 10px;
+            margin: 0 auto;
+            max-width: 200px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .sidebar-logo-title {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-top: 8px;
         }
         
         /* Contenedor de resultados y exportar */
@@ -506,14 +516,101 @@ def main():
     inject_custom_css()
 
     # =====================================================
-    # SIDEBAR - LOGO + FILTROS
+    # SIDEBAR - LOGO ELEGANTE + FILTROS
     # =====================================================
     with st.sidebar:
-        # Logo SVG en la barra lateral
+        # =====================================================
+        # LOGO CON DISEÑO ELEGANTE CENTRADO
+        # =====================================================
         try:
-            st.image("data/logo.svg", use_container_width=True)
-        except:
-            st.markdown("### 🔎 UNSPSC DGCP")
+            from pathlib import Path
+            import os
+            
+            # Buscar el logo en diferentes ubicaciones posibles
+            logo_paths = [
+                Path("data/logo.png"),
+                Path("./data/logo.png"),
+                Path(os.path.join(os.path.dirname(__file__), "data", "logo.png")),
+                Path(os.path.join(os.getcwd(), "data", "logo.png"))
+            ]
+            
+            logo_encontrado = None
+            for path in logo_paths:
+                if path.exists():
+                    logo_encontrado = path
+                    break
+            
+            if logo_encontrado:
+                # Logo con diseño elegante
+                st.markdown("""
+                <div class="sidebar-logo-container">
+                    <div class="sidebar-logo-wrapper">
+                """, unsafe_allow_html=True)
+                
+                st.image(str(logo_encontrado), use_container_width=True)
+                
+                st.markdown("""
+                    </div>
+                    <div class="sidebar-logo-title">
+                        Buscador de Bienes y Servicios
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Fallback con emoji y diseño elegante
+                st.markdown("""
+                <div class="sidebar-logo-container">
+                    <div style="
+                        background: linear-gradient(135deg, #1a5276, #154360);
+                        border-radius: 15px;
+                        padding: 20px;
+                        margin: 0 auto;
+                        max-width: 180px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                    ">
+                        <div style="font-size: 4rem; margin: 0;">🔎</div>
+                        <div style="
+                            font-size: 1.1rem;
+                            font-weight: 700;
+                            color: white;
+                            margin: 5px 0 2px 0;
+                        ">
+                            UNSPSC DGCP
+                        </div>
+                    </div>
+                    <div class="sidebar-logo-title">
+                        Buscador de Bienes y Servicios
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+        except Exception as e:
+            # Fallback de emergencia
+            st.markdown("""
+            <div class="sidebar-logo-container">
+                <div style="
+                    background: linear-gradient(135deg, #1a5276, #154360);
+                    border-radius: 15px;
+                    padding: 20px;
+                    margin: 0 auto;
+                    max-width: 180px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                ">
+                    <div style="font-size: 3.5rem; margin: 0;">🔎</div>
+                    <div style="
+                        font-size: 1rem;
+                        font-weight: 700;
+                        color: white;
+                        margin: 5px 0 2px 0;
+                    ">
+                        UNSPSC DGCP
+                    </div>
+                </div>
+                <div class="sidebar-logo-title">
+                    Buscador de Bienes y Servicios
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         
         st.divider()
         st.header("📂 Filtros")
