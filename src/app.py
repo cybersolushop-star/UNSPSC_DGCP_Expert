@@ -149,30 +149,31 @@ def inject_custom_css():
             border: none !important;
         }
         
-        /* Logo en sidebar */
+        /* Logo en sidebar - MÁS PEQUEÑO Y MÁS ARRIBA */
         .sidebar-logo-container {
             text-align: center;
-            padding: 15px 0 10px 0;
+            padding: 5px 0 5px 0;  /* Reducido de 15px a 5px */
             border-bottom: 2px solid #334155;
-            margin-bottom: 15px;
+            margin-bottom: 10px;    /* Reducido de 15px a 10px */
         }
         .sidebar-logo-wrapper {
             background: white;
-            border-radius: 15px;
-            padding: 10px;
+            border-radius: 12px;    /* Reducido de 15px a 12px */
+            padding: 6px;           /* Reducido de 10px a 6px */
             margin: 0 auto;
-            max-width: 180px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            max-width: 130px;       /* Reducido de 180px a 130px */
+            box-shadow: 0 3px 5px rgba(0,0,0,0.25); /* Sombra más suave */
         }
         .sidebar-logo-wrapper img {
             display: block;
             width: 100%;
             height: auto;
+            border-radius: 6px;
         }
         .sidebar-logo-title {
-            font-size: 0.9rem;
+            font-size: 0.75rem;     /* Reducido de 0.9rem a 0.75rem */
             color: #94a3b8;
-            margin-top: 8px;
+            margin-top: 4px;        /* Reducido de 8px a 4px */
         }
         
         .result-card {
@@ -248,6 +249,34 @@ def inject_custom_css():
         }
         .results-header-container .export-btn {
             margin-left: auto;
+        }
+        
+        /* Reducir espacio del título del sidebar */
+        .stSidebar .stMarkdown h1, 
+        .stSidebar .stMarkdown h2, 
+        .stSidebar .stMarkdown h3 {
+            margin-top: 0 !important;
+            margin-bottom: 8px !important;
+        }
+        
+        /* Reducir espacio entre elementos del sidebar */
+        .stSidebar .stMarkdown {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+        .stSidebar .stSelectbox {
+            margin-top: 0 !important;
+            margin-bottom: 8px !important;
+        }
+        .stSidebar .stCaption {
+            margin-top: 0 !important;
+            margin-bottom: 4px !important;
+        }
+        
+        /* Divisor más compacto */
+        .stSidebar hr {
+            margin-top: 8px !important;
+            margin-bottom: 8px !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -496,18 +525,25 @@ def mostrar_resultado(score, fila, rank):
 
 @st.cache_data
 def obtener_logo_base64():
-    """Obtiene el logo en formato Base64 desde el archivo SVG"""
+    """Obtiene el logo PNG en formato Base64"""
     try:
+        # Intentar cargar desde el archivo PNG
+        png_path = Path("data/logo.png")
+        if png_path.exists():
+            with open(png_path, "rb") as f:
+                png_bytes = f.read()
+                png_base64 = base64.b64encode(png_bytes).decode()
+                return f"data:image/png;base64,{png_base64}"
+        
+        # Si no existe PNG, intentar con el SVG
         svg_path = Path("data/logo_html.txt")
         if svg_path.exists():
             with open(svg_path, "r", encoding="utf-8") as f:
                 svg_content = f.read().strip()
-            
-            # Convertir SVG a Base64
             svg_base64 = base64.b64encode(svg_content.encode()).decode()
             return f"data:image/svg+xml;base64,{svg_base64}"
-        else:
-            return None
+        
+        return None
     except Exception as e:
         print(f"Error cargando logo: {e}")
         return None
@@ -544,45 +580,16 @@ def main():
     inject_custom_css()
 
     # =====================================================
-    # SIDEBAR - LOGO SVG COMO BASE64 + FILTROS
+    # SIDEBAR - LOGO PNG COMO BASE64 + FILTROS
     # =====================================================
     with st.sidebar:
         # =====================================================
-        # LOGO SVG COMO BASE64 (SIN CACHÉ)
+        # LOGO PNG COMO BASE64 (MÁS PEQUEÑO Y MÁS ARRIBA)
         # =====================================================
         try:
             logo_data_uri = obtener_logo_base64()
             
             if logo_data_uri:
-                st.markdown("""
-                <style>
-                    .sidebar-logo-container {
-                        text-align: center;
-                        padding: 15px 0 10px 0;
-                        border-bottom: 2px solid #334155;
-                        margin-bottom: 15px;
-                    }
-                    .sidebar-logo-wrapper {
-                        background: white;
-                        border-radius: 15px;
-                        padding: 10px;
-                        margin: 0 auto;
-                        max-width: 180px;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-                    }
-                    .sidebar-logo-wrapper img {
-                        display: block;
-                        width: 100%;
-                        height: auto;
-                    }
-                    .sidebar-logo-title {
-                        font-size: 0.9rem;
-                        color: #94a3b8;
-                        margin-top: 8px;
-                    }
-                </style>
-                """, unsafe_allow_html=True)
-                
                 st.markdown(f"""
                 <div class="sidebar-logo-container">
                     <div class="sidebar-logo-wrapper">
@@ -594,23 +601,23 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                # Fallback con emoji si no existe el archivo
+                # Fallback con emoji
                 st.markdown("""
                 <div class="sidebar-logo-container">
                     <div style="
                         background: linear-gradient(135deg, #1a5276, #154360);
-                        border-radius: 15px;
-                        padding: 20px;
+                        border-radius: 12px;
+                        padding: 12px;
                         margin: 0 auto;
-                        max-width: 180px;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                        max-width: 130px;
+                        box-shadow: 0 3px 5px rgba(0,0,0,0.25);
                     ">
-                        <div style="font-size: 4rem; margin: 0;">🔎</div>
+                        <div style="font-size: 3rem; margin: 0;">🔎</div>
                         <div style="
-                            font-size: 1.1rem;
+                            font-size: 0.85rem;
                             font-weight: 700;
                             color: white;
-                            margin: 5px 0 2px 0;
+                            margin: 3px 0 2px 0;
                         ">
                             UNSPSC DGCP
                         </div>
@@ -622,23 +629,22 @@ def main():
                 """, unsafe_allow_html=True)
                 
         except Exception as e:
-            # Fallback de emergencia
             st.markdown("""
             <div class="sidebar-logo-container">
                 <div style="
                     background: linear-gradient(135deg, #1a5276, #154360);
-                    border-radius: 15px;
-                    padding: 20px;
+                    border-radius: 12px;
+                    padding: 12px;
                     margin: 0 auto;
-                    max-width: 180px;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                    max-width: 130px;
+                    box-shadow: 0 3px 5px rgba(0,0,0,0.25);
                 ">
-                    <div style="font-size: 3.5rem; margin: 0;">🔎</div>
+                    <div style="font-size: 3rem; margin: 0;">🔎</div>
                     <div style="
-                        font-size: 1rem;
+                        font-size: 0.85rem;
                         font-weight: 700;
                         color: white;
-                        margin: 5px 0 2px 0;
+                        margin: 3px 0 2px 0;
                     ">
                         UNSPSC DGCP
                     </div>
@@ -703,7 +709,6 @@ def main():
     # ENCABEZADO - TÍTULO COMO BOTÓN DE INICIO
     # =====================================================
     
-    # URL de la página de inicio (la misma app)
     home_url = "https://cataloconsultadgcp.streamlit.app"
     
     st.markdown(f"""
@@ -812,7 +817,6 @@ def main():
     search_time_ms = st.session_state.get("search_time_ms", 0)
 
     if resultados:
-        # Solo mostrar la cantidad de resultados
         st.markdown(f"""
         <div style="max-width: 1280px; margin: 12px auto 8px auto; padding: 0 16px;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -823,10 +827,9 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # Exportar (alineado con Resultados)
+        # Exportar
         col_export, col_empty = st.columns([1, 5])
         with col_export:
-            # Crear DataFrame de exportación
             export_data = []
             for score, exacto, fila in resultados:
                 export_data.append({
@@ -868,7 +871,7 @@ def main():
         fin = min(inicio + items_por_pagina, total_items)
         resultados_pagina = resultados[inicio:fin]
         
-        # Controles de paginación (con keys únicas)
+        # Controles de paginación
         if total_paginas > 1:
             col_prev, col_info, col_next = st.columns([1, 3, 1])
             with col_prev:
@@ -882,13 +885,13 @@ def main():
                     if st.session_state.pagina_actual < total_paginas:
                         st.session_state.pagina_actual += 1
         
-        # Mostrar resultados con expander
+        # Mostrar resultados
         rank = inicio + 1
         for score, exacto, fila in resultados_pagina:
             mostrar_resultado(score, fila, rank)
             rank += 1
         
-        # Controles de paginación (abajo con keys únicas)
+        # Controles de paginación (abajo)
         if total_paginas > 1:
             st.divider()
             col_prev, col_info, col_next = st.columns([1, 3, 1])
