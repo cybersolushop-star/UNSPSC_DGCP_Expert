@@ -509,12 +509,11 @@ def main():
     # SIDEBAR - LOGO + FILTROS
     # =====================================================
     with st.sidebar:
-    # Logo SVG en la barra lateral (usando st.image)
-    try:
-        st.image("data/logo.svg", use_container_width=True)
-    except:
-        # Si el logo no se encuentra, mostrar solo el título
-        st.markdown("### 🔎 UNSPSC DGCP")
+        # Logo en la barra lateral
+        try:
+            st.image("data/logo.svg", use_container_width=True)
+        except:
+            st.markdown("### 🔎 UNSPSC DGCP")
         
         st.divider()
         st.header("📂 Filtros")
