@@ -18,16 +18,37 @@ import torch
 from datetime import datetime
 from io import BytesIO
 import time
+import base64
 
 # Importar DatabaseManager desde database
 from database import DatabaseManager
 
-# Configuración de la página
-st.set_page_config(
-    page_title="UNSPSC DGCP BUSCADOR",
-    page_icon="🔎",
-    layout="wide"
-)
+# =====================================================
+# FUNCIÓN PARA OBTENER LOGO COMO BASE64
+# =====================================================
+
+def obtener_logo_base64():
+    """Lee el logo.png y lo convierte a Base64 en tiempo real"""
+    try:
+        # Buscar el logo en múltiples rutas posibles
+        rutas_posibles = [
+            Path("data/logo.png"),
+            Path("./data/logo.png"),
+            Path(os.path.join(os.path.dirname(__file__), "data", "logo.png")),
+            Path(os.path.join(os.getcwd(), "data", "logo.png")),
+        ]
+        
+        for ruta in rutas_posibles:
+            if ruta.exists():
+                with open(ruta, "rb") as f:
+                    logo_bytes = f.read()
+                    logo_base64 = base64.b64encode(logo_bytes).decode()
+                    return f"data:image/png;base64,{logo_base64}"
+        
+        return None
+    except Exception as e:
+        print(f"Error cargando logo: {e}")
+        return None
 
 # =====================================================
 # ESTILOS CSS
@@ -148,31 +169,31 @@ def inject_custom_css():
             border: none !important;
         }
         
-        /* Logo como ícono - MÁS PEQUEÑO */
-        .sidebar-icon-container {
+        /* Logo en sidebar */
+        .sidebar-logo-container {
             text-align: center;
             padding: 5px 0 5px 0;
             border-bottom: 2px solid #334155;
             margin-bottom: 10px;
         }
-        .sidebar-icon-wrapper {
+        .sidebar-logo-wrapper {
             background: white;
             border-radius: 12px;
-            padding: 5px;
+            padding: 6px;
             margin: 0 auto;
-            max-width: 80px;
+            max-width: 130px;
             box-shadow: 0 3px 5px rgba(0,0,0,0.25);
         }
-        .sidebar-icon-wrapper img {
+        .sidebar-logo-wrapper img {
             display: block;
             width: 100%;
             height: auto;
             border-radius: 6px;
         }
-        .sidebar-icon-title {
-            font-size: 0.7rem;
+        .sidebar-logo-title {
+            font-size: 0.75rem;
             color: #94a3b8;
-            margin-top: 3px;
+            margin-top: 4px;
         }
         
         .result-card {
@@ -249,7 +270,6 @@ def inject_custom_css():
             margin-left: auto;
         }
         
-        /* Sidebar más compacto */
         .stSidebar .stMarkdown h1, 
         .stSidebar .stMarkdown h2, 
         .stSidebar .stMarkdown h3 {
@@ -506,13 +526,6 @@ def mostrar_resultado(score, fila, rank):
         st.caption(f"📅 Versión: {fila.get('Fecha Versión', 'No disponible')}")
 
 # =====================================================
-# LOGO EN BASE64 (PNG)
-# =====================================================
-
-# ⚠️ REEMPLAZA ESTO CON EL BASE64 QUE GENERASTE ⚠️
-LOGO_BASE64 = "AQUI_VA_EL_BASE64"
-
-# =====================================================
 # FUNCIÓN PRINCIPAL
 # =====================================================
 
@@ -544,38 +557,76 @@ def main():
     inject_custom_css()
 
     # =====================================================
-    # SIDEBAR - LOGO COMO ÍCONO (PNG)
+    # SIDEBAR - LOGO + FILTROS
     # =====================================================
     with st.sidebar:
         # =====================================================
-        # LOGO PNG COMO ÍCONO (80px)
+        # LOGO PNG COMO BASE64 (CARGADO EN TIEMPO REAL)
         # =====================================================
-        if LOGO_BASE64 and LOGO_BASE64 != "AQUI_VA_EL_BASE64":
-            st.markdown(f"""
-            <div class="sidebar-icon-container">
-                <div class="sidebar-icon-wrapper">
-                    <img src="data:image/png;base64,{LOGO_BASE64}" alt="Logo UNSPSC DGCP">
+        try:
+            logo_data_uri = obtener_logo_base64()
+            
+            if logo_data_uri:
+                st.markdown(f"""
+                <div class="sidebar-logo-container">
+                    <div class="sidebar-logo-wrapper">
+                        <img src="{logo_data_uri}" alt="Logo UNSPSC DGCP">
+                    </div>
+                    <div class="sidebar-logo-title">
+                        Buscador de Bienes y Servicios
+                    </div>
                 </div>
-                <div class="sidebar-icon-title">
-                    Buscador de Bienes y Servicios
+                """, unsafe_allow_html=True)
+            else:
+                # Fallback con emoji
+                st.markdown("""
+                <div class="sidebar-logo-container">
+                    <div style="
+                        background: linear-gradient(135deg, #1a5276, #154360);
+                        border-radius: 12px;
+                        padding: 12px;
+                        margin: 0 auto;
+                        max-width: 130px;
+                        box-shadow: 0 3px 5px rgba(0,0,0,0.25);
+                    ">
+                        <div style="font-size: 3rem; margin: 0;">🔎</div>
+                        <div style="
+                            font-size: 0.85rem;
+                            font-weight: 700;
+                            color: white;
+                            margin: 3px 0 2px 0;
+                        ">
+                            UNSPSC DGCP
+                        </div>
+                    </div>
+                    <div class="sidebar-logo-title">
+                        Buscador de Bienes y Servicios
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            # Fallback con emoji
+                """, unsafe_allow_html=True)
+                
+        except Exception as e:
             st.markdown("""
-            <div class="sidebar-icon-container">
+            <div class="sidebar-logo-container">
                 <div style="
-                    background: white;
+                    background: linear-gradient(135deg, #1a5276, #154360);
                     border-radius: 12px;
-                    padding: 8px;
+                    padding: 12px;
                     margin: 0 auto;
-                    max-width: 70px;
+                    max-width: 130px;
                     box-shadow: 0 3px 5px rgba(0,0,0,0.25);
                 ">
-                    <div style="font-size: 2.5rem; margin: 0;">🔎</div>
+                    <div style="font-size: 3rem; margin: 0;">🔎</div>
+                    <div style="
+                        font-size: 0.85rem;
+                        font-weight: 700;
+                        color: white;
+                        margin: 3px 0 2px 0;
+                    ">
+                        UNSPSC DGCP
+                    </div>
                 </div>
-                <div class="sidebar-icon-title">
+                <div class="sidebar-logo-title">
                     Buscador de Bienes y Servicios
                 </div>
             </div>
