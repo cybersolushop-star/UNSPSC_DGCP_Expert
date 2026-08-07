@@ -180,6 +180,7 @@ def inject_custom_css():
             color: #94a3b8;
             margin-top: 4px;
             transition: color 0.2s ease;
+            cursor: pointer;
         }
         .sidebar-logo-title:hover {
             color: #e2e8f0;
@@ -187,6 +188,7 @@ def inject_custom_css():
         .logo-home-link {
             text-decoration: none;
             display: block;
+            cursor: pointer;
         }
         
         .result-card {
@@ -589,14 +591,58 @@ def main():
     # =====================================================
     with st.sidebar:
         # =====================================================
-        # LOGO CON FUNCIÓN DE INICIO (CLICKABLE)
+        # LOGO CON FUNCIÓN DE INICIO (CLICKABLE - MISMA VENTANA)
         # =====================================================
         try:
             logo_url = "https://raw.githubusercontent.com/cybersolushop-star/UNSPSC_DGCP_Expert/main/data/logo.png"
             
             st.markdown(f"""
-            <a href="?reset=true" class="logo-home-link" title="Ir al inicio">
-                <div class="sidebar-logo-container">
+            <style>
+                .sidebar-logo-container {{
+                    text-align: center;
+                    padding: 5px 0 5px 0;
+                    border-bottom: 2px solid #334155;
+                    margin-bottom: 10px;
+                }}
+                .sidebar-logo-wrapper {{
+                    background: white;
+                    border-radius: 12px;
+                    padding: 6px;
+                    margin: 0 auto;
+                    max-width: 130px;
+                    box-shadow: 0 3px 5px rgba(0,0,0,0.25);
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                    cursor: pointer;
+                }}
+                .sidebar-logo-wrapper:hover {{
+                    transform: scale(1.05);
+                    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+                }}
+                .sidebar-logo-wrapper img {{
+                    display: block;
+                    width: 100%;
+                    height: auto;
+                    border-radius: 6px;
+                }}
+                .sidebar-logo-title {{
+                    font-size: 0.75rem;
+                    color: #94a3b8;
+                    margin-top: 4px;
+                    transition: color 0.2s ease;
+                    cursor: pointer;
+                }}
+                .sidebar-logo-title:hover {{
+                    color: #e2e8f0;
+                }}
+                .logo-home-link {{
+                    text-decoration: none;
+                    display: block;
+                    cursor: pointer;
+                }}
+            </style>
+            
+            <div class="sidebar-logo-container">
+                <div class="logo-home-link" onclick="window.location.href = window.location.pathname + '?reset=true';">
                     <div class="sidebar-logo-wrapper">
                         <img src="{logo_url}" alt="Logo UNSPSC DGCP - Ir al inicio">
                     </div>
@@ -604,39 +650,37 @@ def main():
                         🏠 Buscador de Bienes y Servicios
                     </div>
                 </div>
-            </a>
+            </div>
             """, unsafe_allow_html=True)
             
         except Exception as e:
             # Fallback con emoji
             st.markdown("""
-            <a href="?reset=true" style="text-decoration: none;" title="Ir al inicio">
-                <div class="sidebar-logo-container">
+            <div class="sidebar-logo-container">
+                <div style="
+                    background: linear-gradient(135deg, #1a5276, #154360);
+                    border-radius: 12px;
+                    padding: 12px;
+                    margin: 0 auto;
+                    max-width: 130px;
+                    box-shadow: 0 3px 5px rgba(0,0,0,0.25);
+                    cursor: pointer;
+                    transition: transform 0.2s ease;
+                " onclick="window.location.href = window.location.pathname + '?reset=true';">
+                    <div style="font-size: 3rem; margin: 0;">🔎</div>
                     <div style="
-                        background: linear-gradient(135deg, #1a5276, #154360);
-                        border-radius: 12px;
-                        padding: 12px;
-                        margin: 0 auto;
-                        max-width: 130px;
-                        box-shadow: 0 3px 5px rgba(0,0,0,0.25);
-                        cursor: pointer;
-                        transition: transform 0.2s ease;
+                        font-size: 0.85rem;
+                        font-weight: 700;
+                        color: white;
+                        margin: 3px 0 2px 0;
                     ">
-                        <div style="font-size: 3rem; margin: 0;">🔎</div>
-                        <div style="
-                            font-size: 0.85rem;
-                            font-weight: 700;
-                            color: white;
-                            margin: 3px 0 2px 0;
-                        ">
-                            UNSPSC DGCP
-                        </div>
-                    </div>
-                    <div class="sidebar-logo-title">
-                        🏠 Buscador de Bienes y Servicios
+                        UNSPSC DGCP
                     </div>
                 </div>
-            </a>
+                <div class="sidebar-logo-title" onclick="window.location.href = window.location.pathname + '?reset=true';">
+                    🏠 Buscador de Bienes y Servicios
+                </div>
+            </div>
             """, unsafe_allow_html=True)
         
         st.divider()
