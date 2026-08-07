@@ -1,0 +1,6 @@
+2026-07-28 15:40:12,130 - INFO - Conectado a base de datos: db/DGCP_UNSPSC.db
+2026-07-28 15:40:12,147 - INFO - Tabla 'catalogo_bienes' creada/verificada
+2026-07-28 15:40:12,162 - INFO - Índices creados
+2026-07-28 15:40:12,170 - INFO - Tabla 'imputaciones_presupuestarias' creada/verificada
+2026-07-28 15:40:12,195 - INFO - Índices creados para imputaciones
+2026-07-28 15:40:13,473 - INFO - Conexión cerrada
