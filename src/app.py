@@ -37,6 +37,14 @@ def inject_custom_css():
     """Inyecta CSS personalizado"""
     st.markdown("""
     <style>
+        /* Reducir espacio superior de la página */
+        .main > div {
+            padding-top: 0 !important;
+        }
+        .block-container {
+            padding-top: 0.5rem !important;
+        }
+        
         .stTextInput > label {
             display: none !important;
         }
@@ -63,9 +71,26 @@ def inject_custom_css():
             color: #9ca3af !important;
         }
         
+        /* Selectores en sidebar - CORREGIDO */
+        .stSelectbox > div > div {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f1f5f9 !important;
+            border-radius: 8px !important;
+        }
+        .stSelectbox > div > div > div {
+            color: #f1f5f9 !important;
+        }
+        .stSelectbox > div > div:hover {
+            border-color: #3b82f6 !important;
+        }
+        .stSelectbox label {
+            color: #94a3b8 !important;
+        }
+        
         .main-header {
             text-align: center;
-            padding: 20px 0 10px 0;
+            padding: 8px 0 4px 0;
         }
         .main-header h1 {
             color: #1a5276;
@@ -73,16 +98,54 @@ def inject_custom_css():
             font-weight: 700;
             margin: 0;
         }
+        .main-header h1 a {
+            color: #1a5276;
+            text-decoration: none;
+        }
+        .main-header h1 a:hover {
+            color: #154360;
+            text-decoration: underline;
+        }
         .main-header p {
             color: #5d6d7e;
             font-size: 1.1rem;
-            margin: 4px 0 0 0;
+            margin: 2px 0 0 0;
         }
         .main-header .credits {
             color: #5d6d7e;
             font-size: 0.9rem;
             font-style: italic;
-            margin: 4px 0 0 0;
+            margin: 2px 0 0 0;
+        }
+        
+        /* Sidebar */
+        [data-testid="stSidebar"] {
+            background-color: #0f172a !important;
+        }
+        [data-testid="stSidebar"] .stSelectbox label {
+            color: #94a3b8 !important;
+        }
+        [data-testid="stSidebar"] .stSelectbox > div > div {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f1f5f9 !important;
+        }
+        [data-testid="stSidebar"] .stSelectbox > div > div > div {
+            color: #f1f5f9 !important;
+        }
+        [data-testid="stSidebar"] .stSelectbox > div > div:hover {
+            border-color: #3b82f6 !important;
+        }
+        [data-testid="stSidebar"] .stCaption {
+            color: #94a3b8 !important;
+        }
+        [data-testid="stSidebar"] .stMarkdown {
+            color: #f1f5f9 !important;
+        }
+        [data-testid="stSidebar"] .stButton > button {
+            background-color: #1a5276 !important;
+            color: white !important;
+            border: none !important;
         }
         
         .result-card {
@@ -124,32 +187,6 @@ def inject_custom_css():
             font-weight: 600;
         }
         
-        .metrics-container {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            max-width: 1280px;
-            margin: 16px auto;
-            padding: 0 16px;
-        }
-        .metric-card {
-            background: white;
-            border-radius: 8px;
-            padding: 12px 16px;
-            border: 1px solid #e8e8e8;
-            text-align: center;
-        }
-        .metric-card .value {
-            font-size: 20px;
-            font-weight: 700;
-            color: #1a5276;
-        }
-        .metric-card .label {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 2px;
-        }
-        
         .footer {
             text-align: center;
             padding: 20px 16px;
@@ -158,20 +195,6 @@ def inject_custom_css():
             color: #6b7280;
             font-size: 14px;
         }
-        .stSelectbox > div > div {
-            background-color: white !important;
-        }
-        .stButton > button {
-            background-color: #1a5276 !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 8px !important;
-            padding: 8px 16px !important;
-        }
-        .stButton > button:hover {
-            background-color: #154360 !important;
-            box-shadow: 0 2px 8px rgba(26, 82, 118, 0.3) !important;
-        }
         .stExpander {
             border: 1px solid #e8e8e8 !important;
             border-radius: 12px !important;
@@ -179,6 +202,36 @@ def inject_custom_css():
         }
         .stExpander > div:first-child {
             border-radius: 12px !important;
+        }
+        
+        /* Logo en sidebar */
+        .sidebar-logo {
+            display: flex;
+            justify-content: center;
+            padding: 10px 0 5px 0;
+        }
+        .sidebar-logo img {
+            max-width: 120px;
+            height: auto;
+        }
+        
+        /* Contenedor de resultados y exportar */
+        .results-header-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1280px;
+            margin: 12px auto 8px auto;
+            padding: 0 16px;
+        }
+        .results-header-container h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a5276;
+            margin: 0;
+        }
+        .results-header-container .export-btn {
+            margin-left: auto;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -453,20 +506,17 @@ def main():
     inject_custom_css()
 
     # =====================================================
-    # ENCABEZADO
-    # =====================================================
-    st.markdown("""
-    <div class="main-header">
-        <h1>🔎 BUSCADOR UNSPSC DGCP</h1>
-        <p>Catálogo de Bienes y Servicios DGCP</p>
-        <p class="credits">por Rudy Pérez</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # =====================================================
-    # SIDEBAR - FILTROS
+    # SIDEBAR - LOGO + FILTROS
     # =====================================================
     with st.sidebar:
+        # Logo SVG en la barra lateral
+        st.markdown("""
+        <div class="sidebar-logo">
+            <img src="data/logo.svg" alt="Logo DGCP">
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.divider()
         st.header("📂 Filtros")
         
         try:
@@ -515,6 +565,21 @@ def main():
         
         st.divider()
         st.caption("🔎 UNSPSC DGCP Expert v2.0")
+
+    # =====================================================
+    # ENCABEZADO - TÍTULO COMO BOTÓN DE INICIO
+    # =====================================================
+    
+    # URL de la página de inicio (la misma app)
+    home_url = "https://cataloconsultadgcp.streamlit.app"
+    
+    st.markdown(f"""
+    <div class="main-header">
+        <h1><a href="{home_url}" target="_self">🔎 BUSCADOR UNSPSC DGCP</a></h1>
+        <p>Catálogo de Bienes y Servicios DGCP</p>
+        <p class="credits">por Rudy Pérez</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     # =====================================================
     # BARRA DE BÚSQUEDA
@@ -583,12 +648,6 @@ def main():
                         embeddings = cargar_embeddings()
                         sinonimos_dict = cargar_sinonimos()
                         sinonimos = sinonimos_dict.get(consulta, [])
-                        
-                        # =====================================================
-                        # DEBUG: Mostrar sinónimos antes de la búsqueda
-                        # =====================================================
-                        
-                        
                         resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
                         st.session_state.resultados = resultados
                         st.session_state.sinonimos = sinonimos
@@ -611,7 +670,7 @@ def main():
         st.session_state.ultima_busqueda = ""
 
     # =====================================================
-    # MOSTRAR RESULTADOS
+    # MOSTRAR RESULTADOS (Solo cantidad de resultados)
     # =====================================================
     
     resultados = st.session_state.resultados
@@ -620,15 +679,21 @@ def main():
     search_time_ms = st.session_state.get("search_time_ms", 0)
 
     if resultados:
-        # Métricas
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("📊 Resultados", len(resultados))
-        col2.metric("🔍 Método", "Híbrido")
-        col3.metric("🔗 Sinónimos", len(sinonimos))
-        col4.metric("⏱️ Tiempo", f"{search_time_ms:.0f} ms" if search_time_ms > 0 else "< 100 ms")
+        # Solo mostrar la cantidad de resultados
+        st.markdown(f"""
+        <div style="max-width: 1280px; margin: 12px auto 8px auto; padding: 0 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1a5276; margin: 0;">
+                    📋 Resultados encontrados: {len(resultados)}
+                </h2>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Exportar
-        if st.button("📥 Exportar a Excel"):
+        # Exportar (alineado con Resultados)
+        col_export, col_empty = st.columns([1, 5])
+        with col_export:
+            # Crear DataFrame de exportación
             export_data = []
             for score, exacto, fila in resultados:
                 export_data.append({
@@ -640,18 +705,21 @@ def main():
                     "Familia": fila["Familia"],
                     "Clase": fila["Clase"]
                 })
-            df_export = pd.DataFrame(export_data)
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                df_export.to_excel(writer, index=False)
-            st.download_button(
-                "📥 Descargar Excel",
-                output.getvalue(),
-                file_name=f"resultados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        
-        st.subheader(f"📋 Resultados encontrados: {len(resultados)}")
+            
+            if export_data:
+                df_export = pd.DataFrame(export_data)
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                    df_export.to_excel(writer, index=False)
+                excel_data = output.getvalue()
+                
+                st.download_button(
+                    "📥 Exportar a Excel",
+                    excel_data,
+                    file_name=f"resultados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
         
         # Paginación
         items_por_pagina = 10
