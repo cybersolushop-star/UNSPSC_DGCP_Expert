@@ -509,7 +509,7 @@ def main():
     # SIDEBAR - LOGO + FILTROS
     # =====================================================
     with st.sidebar:
-        # Logo en la barra lateral
+        # Logo SVG en la barra lateral
         try:
             st.image("data/logo.svg", use_container_width=True)
         except:
