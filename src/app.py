@@ -18,37 +18,16 @@ import torch
 from datetime import datetime
 from io import BytesIO
 import time
-import base64
 
 # Importar DatabaseManager desde database
 from database import DatabaseManager
 
-# =====================================================
-# FUNCIÓN PARA OBTENER LOGO COMO BASE64
-# =====================================================
-
-def obtener_logo_base64():
-    """Lee el logo.png y lo convierte a Base64 en tiempo real"""
-    try:
-        # Buscar el logo en múltiples rutas posibles
-        rutas_posibles = [
-            Path("data/logo.png"),
-            Path("./data/logo.png"),
-            Path(os.path.join(os.path.dirname(__file__), "data", "logo.png")),
-            Path(os.path.join(os.getcwd(), "data", "logo.png")),
-        ]
-        
-        for ruta in rutas_posibles:
-            if ruta.exists():
-                with open(ruta, "rb") as f:
-                    logo_bytes = f.read()
-                    logo_base64 = base64.b64encode(logo_bytes).decode()
-                    return f"data:image/png;base64,{logo_base64}"
-        
-        return None
-    except Exception as e:
-        print(f"Error cargando logo: {e}")
-        return None
+# Configuración de la página
+st.set_page_config(
+    page_title="UNSPSC DGCP BUSCADOR",
+    page_icon="🔎",
+    layout="wide"
+)
 
 # =====================================================
 # ESTILOS CSS
@@ -169,7 +148,7 @@ def inject_custom_css():
             border: none !important;
         }
         
-        /* Logo en sidebar */
+        /* Logo en sidebar - CLICKABLE */
         .sidebar-logo-container {
             text-align: center;
             padding: 5px 0 5px 0;
@@ -183,6 +162,12 @@ def inject_custom_css():
             margin: 0 auto;
             max-width: 130px;
             box-shadow: 0 3px 5px rgba(0,0,0,0.25);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+        }
+        .sidebar-logo-wrapper:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
         }
         .sidebar-logo-wrapper img {
             display: block;
@@ -194,6 +179,14 @@ def inject_custom_css():
             font-size: 0.75rem;
             color: #94a3b8;
             margin-top: 4px;
+            transition: color 0.2s ease;
+        }
+        .sidebar-logo-title:hover {
+            color: #e2e8f0;
+        }
+        .logo-home-link {
+            text-decoration: none;
+            display: block;
         }
         
         .result-card {
@@ -557,29 +550,50 @@ def main():
     inject_custom_css()
 
     # =====================================================
-    # SIDEBAR - LOGO + FILTROS
+    # DETECTAR CLICK EN EL LOGO (RESET)
+    # =====================================================
+    query_params = st.query_params
+    if query_params.get("reset") == "true":
+        # Limpiar los session_state importantes
+        st.session_state.consulta = ""
+        st.session_state.resultados = []
+        st.session_state.sinonimos = []
+        st.session_state.tipo_busqueda = "texto"
+        st.session_state.pagina_actual = 1
+        st.session_state.ultima_busqueda = ""
+        st.session_state.search_time_ms = 0
+        st.session_state.consulta_input = ""
+        # Limpiar el parámetro de la URL
+        st.query_params.clear()
+        st.rerun()
+
+    # =====================================================
+    # SIDEBAR - LOGO COMO BOTÓN DE INICIO + FILTROS
     # =====================================================
     with st.sidebar:
         # =====================================================
-        # LOGO PNG COMO BASE64 (CARGADO EN TIEMPO REAL)
+        # LOGO CON FUNCIÓN DE INICIO (CLICKABLE)
         # =====================================================
         try:
-            logo_data_uri = obtener_logo_base64()
+            logo_url = "https://raw.githubusercontent.com/cybersolushop-star/UNSPSC_DGCP_Expert/main/data/logo.png"
             
-            if logo_data_uri:
-                st.markdown(f"""
+            st.markdown(f"""
+            <a href="?reset=true" class="logo-home-link" title="Ir al inicio">
                 <div class="sidebar-logo-container">
                     <div class="sidebar-logo-wrapper">
-                        <img src="{logo_data_uri}" alt="Logo UNSPSC DGCP">
+                        <img src="{logo_url}" alt="Logo UNSPSC DGCP - Ir al inicio">
                     </div>
                     <div class="sidebar-logo-title">
-                        Buscador de Bienes y Servicios
+                        🏠 Buscador de Bienes y Servicios
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
-            else:
-                # Fallback con emoji
-                st.markdown("""
+            </a>
+            """, unsafe_allow_html=True)
+            
+        except Exception as e:
+            # Fallback con emoji
+            st.markdown("""
+            <a href="?reset=true" style="text-decoration: none;" title="Ir al inicio">
                 <div class="sidebar-logo-container">
                     <div style="
                         background: linear-gradient(135deg, #1a5276, #154360);
@@ -588,6 +602,8 @@ def main():
                         margin: 0 auto;
                         max-width: 130px;
                         box-shadow: 0 3px 5px rgba(0,0,0,0.25);
+                        cursor: pointer;
+                        transition: transform 0.2s ease;
                     ">
                         <div style="font-size: 3rem; margin: 0;">🔎</div>
                         <div style="
@@ -600,36 +616,10 @@ def main():
                         </div>
                     </div>
                     <div class="sidebar-logo-title">
-                        Buscador de Bienes y Servicios
+                        🏠 Buscador de Bienes y Servicios
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
-                
-        except Exception as e:
-            st.markdown("""
-            <div class="sidebar-logo-container">
-                <div style="
-                    background: linear-gradient(135deg, #1a5276, #154360);
-                    border-radius: 12px;
-                    padding: 12px;
-                    margin: 0 auto;
-                    max-width: 130px;
-                    box-shadow: 0 3px 5px rgba(0,0,0,0.25);
-                ">
-                    <div style="font-size: 3rem; margin: 0;">🔎</div>
-                    <div style="
-                        font-size: 0.85rem;
-                        font-weight: 700;
-                        color: white;
-                        margin: 3px 0 2px 0;
-                    ">
-                        UNSPSC DGCP
-                    </div>
-                </div>
-                <div class="sidebar-logo-title">
-                    Buscador de Bienes y Servicios
-                </div>
-            </div>
+            </a>
             """, unsafe_allow_html=True)
         
         st.divider()
@@ -677,6 +667,8 @@ def main():
             st.session_state.tipo_busqueda = "texto"
             st.session_state.pagina_actual = 1
             st.session_state.ultima_busqueda = ""
+            st.session_state.search_time_ms = 0
+            st.session_state.consulta_input = ""
             st.rerun()
         
         st.divider()
