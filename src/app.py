@@ -18,7 +18,6 @@ import torch
 from datetime import datetime
 from io import BytesIO
 import time
-import base64
 
 # Importar DatabaseManager desde database
 from database import DatabaseManager
@@ -72,7 +71,7 @@ def inject_custom_css():
             color: #9ca3af !important;
         }
         
-        /* Selectores en sidebar - CORREGIDO */
+        /* Selectores en sidebar */
         .stSelectbox > div > div {
             background-color: #1e293b !important;
             border-color: #334155 !important;
@@ -149,31 +148,31 @@ def inject_custom_css():
             border: none !important;
         }
         
-        /* Logo en sidebar - MÁS PEQUEÑO Y MÁS ARRIBA */
-        .sidebar-logo-container {
+        /* Logo como ícono - MÁS PEQUEÑO */
+        .sidebar-icon-container {
             text-align: center;
-            padding: 5px 0 5px 0;  /* Reducido de 15px a 5px */
+            padding: 5px 0 5px 0;
             border-bottom: 2px solid #334155;
-            margin-bottom: 10px;    /* Reducido de 15px a 10px */
+            margin-bottom: 10px;
         }
-        .sidebar-logo-wrapper {
+        .sidebar-icon-wrapper {
             background: white;
-            border-radius: 12px;    /* Reducido de 15px a 12px */
-            padding: 6px;           /* Reducido de 10px a 6px */
+            border-radius: 12px;
+            padding: 5px;
             margin: 0 auto;
-            max-width: 130px;       /* Reducido de 180px a 130px */
-            box-shadow: 0 3px 5px rgba(0,0,0,0.25); /* Sombra más suave */
+            max-width: 80px;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.25);
         }
-        .sidebar-logo-wrapper img {
+        .sidebar-icon-wrapper img {
             display: block;
             width: 100%;
             height: auto;
             border-radius: 6px;
         }
-        .sidebar-logo-title {
-            font-size: 0.75rem;     /* Reducido de 0.9rem a 0.75rem */
+        .sidebar-icon-title {
+            font-size: 0.7rem;
             color: #94a3b8;
-            margin-top: 4px;        /* Reducido de 8px a 4px */
+            margin-top: 3px;
         }
         
         .result-card {
@@ -232,7 +231,6 @@ def inject_custom_css():
             border-radius: 12px !important;
         }
         
-        /* Contenedor de resultados y exportar */
         .results-header-container {
             display: flex;
             align-items: center;
@@ -251,32 +249,20 @@ def inject_custom_css():
             margin-left: auto;
         }
         
-        /* Reducir espacio del título del sidebar */
+        /* Sidebar más compacto */
         .stSidebar .stMarkdown h1, 
         .stSidebar .stMarkdown h2, 
         .stSidebar .stMarkdown h3 {
             margin-top: 0 !important;
-            margin-bottom: 8px !important;
-        }
-        
-        /* Reducir espacio entre elementos del sidebar */
-        .stSidebar .stMarkdown {
-            margin-top: 0 !important;
-            margin-bottom: 0 !important;
+            margin-bottom: 6px !important;
         }
         .stSidebar .stSelectbox {
             margin-top: 0 !important;
-            margin-bottom: 8px !important;
+            margin-bottom: 6px !important;
         }
-        .stSidebar .stCaption {
-            margin-top: 0 !important;
-            margin-bottom: 4px !important;
-        }
-        
-        /* Divisor más compacto */
         .stSidebar hr {
-            margin-top: 8px !important;
-            margin-bottom: 8px !important;
+            margin-top: 6px !important;
+            margin-bottom: 6px !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -520,33 +506,11 @@ def mostrar_resultado(score, fila, rank):
         st.caption(f"📅 Versión: {fila.get('Fecha Versión', 'No disponible')}")
 
 # =====================================================
-# FUNCIÓN PARA OBTENER LOGO EN BASE64
+# LOGO EN BASE64 (PNG)
 # =====================================================
 
-@st.cache_data
-def obtener_logo_base64():
-    """Obtiene el logo PNG en formato Base64"""
-    try:
-        # Intentar cargar desde el archivo PNG
-        png_path = Path("data/logo.png")
-        if png_path.exists():
-            with open(png_path, "rb") as f:
-                png_bytes = f.read()
-                png_base64 = base64.b64encode(png_bytes).decode()
-                return f"data:image/png;base64,{png_base64}"
-        
-        # Si no existe PNG, intentar con el SVG
-        svg_path = Path("data/logo_html.txt")
-        if svg_path.exists():
-            with open(svg_path, "r", encoding="utf-8") as f:
-                svg_content = f.read().strip()
-            svg_base64 = base64.b64encode(svg_content.encode()).decode()
-            return f"data:image/svg+xml;base64,{svg_base64}"
-        
-        return None
-    except Exception as e:
-        print(f"Error cargando logo: {e}")
-        return None
+# ⚠️ REEMPLAZA ESTO CON EL BASE64 QUE GENERASTE ⚠️
+LOGO_BASE64 = "AQUI_VA_EL_BASE64"
 
 # =====================================================
 # FUNCIÓN PRINCIPAL
@@ -580,76 +544,38 @@ def main():
     inject_custom_css()
 
     # =====================================================
-    # SIDEBAR - LOGO PNG COMO BASE64 + FILTROS
+    # SIDEBAR - LOGO COMO ÍCONO (PNG)
     # =====================================================
     with st.sidebar:
         # =====================================================
-        # LOGO PNG COMO BASE64 (MÁS PEQUEÑO Y MÁS ARRIBA)
+        # LOGO PNG COMO ÍCONO (80px)
         # =====================================================
-        try:
-            logo_data_uri = obtener_logo_base64()
-            
-            if logo_data_uri:
-                st.markdown(f"""
-                <div class="sidebar-logo-container">
-                    <div class="sidebar-logo-wrapper">
-                        <img src="{logo_data_uri}" alt="Logo UNSPSC DGCP">
-                    </div>
-                    <div class="sidebar-logo-title">
-                        Buscador de Bienes y Servicios
-                    </div>
+        if LOGO_BASE64 and LOGO_BASE64 != "AQUI_VA_EL_BASE64":
+            st.markdown(f"""
+            <div class="sidebar-icon-container">
+                <div class="sidebar-icon-wrapper">
+                    <img src="data:image/png;base64,{LOGO_BASE64}" alt="Logo UNSPSC DGCP">
                 </div>
-                """, unsafe_allow_html=True)
-            else:
-                # Fallback con emoji
-                st.markdown("""
-                <div class="sidebar-logo-container">
-                    <div style="
-                        background: linear-gradient(135deg, #1a5276, #154360);
-                        border-radius: 12px;
-                        padding: 12px;
-                        margin: 0 auto;
-                        max-width: 130px;
-                        box-shadow: 0 3px 5px rgba(0,0,0,0.25);
-                    ">
-                        <div style="font-size: 3rem; margin: 0;">🔎</div>
-                        <div style="
-                            font-size: 0.85rem;
-                            font-weight: 700;
-                            color: white;
-                            margin: 3px 0 2px 0;
-                        ">
-                            UNSPSC DGCP
-                        </div>
-                    </div>
-                    <div class="sidebar-logo-title">
-                        Buscador de Bienes y Servicios
-                    </div>
+                <div class="sidebar-icon-title">
+                    Buscador de Bienes y Servicios
                 </div>
-                """, unsafe_allow_html=True)
-                
-        except Exception as e:
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            # Fallback con emoji
             st.markdown("""
-            <div class="sidebar-logo-container">
+            <div class="sidebar-icon-container">
                 <div style="
-                    background: linear-gradient(135deg, #1a5276, #154360);
+                    background: white;
                     border-radius: 12px;
-                    padding: 12px;
+                    padding: 8px;
                     margin: 0 auto;
-                    max-width: 130px;
+                    max-width: 70px;
                     box-shadow: 0 3px 5px rgba(0,0,0,0.25);
                 ">
-                    <div style="font-size: 3rem; margin: 0;">🔎</div>
-                    <div style="
-                        font-size: 0.85rem;
-                        font-weight: 700;
-                        color: white;
-                        margin: 3px 0 2px 0;
-                    ">
-                        UNSPSC DGCP
-                    </div>
+                    <div style="font-size: 2.5rem; margin: 0;">🔎</div>
                 </div>
-                <div class="sidebar-logo-title">
+                <div class="sidebar-icon-title">
                     Buscador de Bienes y Servicios
                 </div>
             </div>
@@ -827,7 +753,6 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # Exportar
         col_export, col_empty = st.columns([1, 5])
         with col_export:
             export_data = []
@@ -857,7 +782,6 @@ def main():
                     use_container_width=True
                 )
         
-        # Paginación
         items_por_pagina = 10
         total_items = len(resultados)
         total_paginas = (total_items + items_por_pagina - 1) // items_por_pagina
@@ -871,7 +795,6 @@ def main():
         fin = min(inicio + items_por_pagina, total_items)
         resultados_pagina = resultados[inicio:fin]
         
-        # Controles de paginación
         if total_paginas > 1:
             col_prev, col_info, col_next = st.columns([1, 3, 1])
             with col_prev:
@@ -885,13 +808,11 @@ def main():
                     if st.session_state.pagina_actual < total_paginas:
                         st.session_state.pagina_actual += 1
         
-        # Mostrar resultados
         rank = inicio + 1
         for score, exacto, fila in resultados_pagina:
             mostrar_resultado(score, fila, rank)
             rank += 1
         
-        # Controles de paginación (abajo)
         if total_paginas > 1:
             st.divider()
             col_prev, col_info, col_next = st.columns([1, 3, 1])
@@ -910,9 +831,6 @@ def main():
         st.info("ℹ️ No se encontraron resultados para esta búsqueda.")
         st.caption("Sugerencias: prueba con sinónimos o términos más generales.")
 
-    # =====================================================
-    # FOOTER
-    # =====================================================
     st.markdown("""
     <div class="footer">
         © 2026, todos los derechos reservados. | BUSCADOR UNSPSC DGCP
