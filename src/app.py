@@ -18,6 +18,7 @@ import torch
 from datetime import datetime
 from io import BytesIO
 import time
+import base64
 
 # Importar DatabaseManager desde database
 from database import DatabaseManager
@@ -163,7 +164,7 @@ def inject_custom_css():
             max-width: 180px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .sidebar-logo-wrapper svg {
+        .sidebar-logo-wrapper img {
             display: block;
             width: 100%;
             height: auto;
@@ -490,6 +491,28 @@ def mostrar_resultado(score, fila, rank):
         st.caption(f"📅 Versión: {fila.get('Fecha Versión', 'No disponible')}")
 
 # =====================================================
+# FUNCIÓN PARA OBTENER LOGO EN BASE64
+# =====================================================
+
+@st.cache_data
+def obtener_logo_base64():
+    """Obtiene el logo en formato Base64 desde el archivo SVG"""
+    try:
+        svg_path = Path("data/logo_html.txt")
+        if svg_path.exists():
+            with open(svg_path, "r", encoding="utf-8") as f:
+                svg_content = f.read().strip()
+            
+            # Convertir SVG a Base64
+            svg_base64 = base64.b64encode(svg_content.encode()).decode()
+            return f"data:image/svg+xml;base64,{svg_base64}"
+        else:
+            return None
+    except Exception as e:
+        print(f"Error cargando logo: {e}")
+        return None
+
+# =====================================================
 # FUNCIÓN PRINCIPAL
 # =====================================================
 
@@ -521,20 +544,16 @@ def main():
     inject_custom_css()
 
     # =====================================================
-    # SIDEBAR - LOGO SVG + FILTROS
+    # SIDEBAR - LOGO SVG COMO BASE64 + FILTROS
     # =====================================================
     with st.sidebar:
         # =====================================================
-        # LOGO SVG DESDE ARCHIVO (SIN CACHÉ)
+        # LOGO SVG COMO BASE64 (SIN CACHÉ)
         # =====================================================
         try:
-            # Intentar cargar el SVG desde el archivo
-            svg_path = Path("data/logo_html.txt")
-            if svg_path.exists():
-                with open(svg_path, "r", encoding="utf-8") as f:
-                    svg_content = f.read().strip()
-                
-                # Estilos para el logo
+            logo_data_uri = obtener_logo_base64()
+            
+            if logo_data_uri:
                 st.markdown("""
                 <style>
                     .sidebar-logo-container {
@@ -551,7 +570,7 @@ def main():
                         max-width: 180px;
                         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
                     }
-                    .sidebar-logo-wrapper svg {
+                    .sidebar-logo-wrapper img {
                         display: block;
                         width: 100%;
                         height: auto;
@@ -564,11 +583,10 @@ def main():
                 </style>
                 """, unsafe_allow_html=True)
                 
-                # Mostrar el logo con el SVG
                 st.markdown(f"""
                 <div class="sidebar-logo-container">
                     <div class="sidebar-logo-wrapper">
-                        {svg_content}
+                        <img src="{logo_data_uri}" alt="Logo UNSPSC DGCP">
                     </div>
                     <div class="sidebar-logo-title">
                         Buscador de Bienes y Servicios
