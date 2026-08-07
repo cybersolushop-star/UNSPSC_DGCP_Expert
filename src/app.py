@@ -550,22 +550,39 @@ def main():
     inject_custom_css()
 
     # =====================================================
-    # DETECTAR CLICK EN EL LOGO (RESET)
+    # DETECTAR CLICK EN EL LOGO (RESET) - Compatible con Streamlit 1.28.0
     # =====================================================
-    query_params = st.query_params
-    if query_params.get("reset") == "true":
-        # Limpiar los session_state importantes
-        st.session_state.consulta = ""
-        st.session_state.resultados = []
-        st.session_state.sinonimos = []
-        st.session_state.tipo_busqueda = "texto"
-        st.session_state.pagina_actual = 1
-        st.session_state.ultima_busqueda = ""
-        st.session_state.search_time_ms = 0
-        st.session_state.consulta_input = ""
-        # Limpiar el parámetro de la URL
-        st.query_params.clear()
-        st.rerun()
+    try:
+        # Intentar con el método nuevo (Streamlit >= 1.30.0)
+        query_params = st.query_params
+        if query_params.get("reset") == "true":
+            st.session_state.consulta = ""
+            st.session_state.resultados = []
+            st.session_state.sinonimos = []
+            st.session_state.tipo_busqueda = "texto"
+            st.session_state.pagina_actual = 1
+            st.session_state.ultima_busqueda = ""
+            st.session_state.search_time_ms = 0
+            st.session_state.consulta_input = ""
+            st.query_params.clear()
+            st.rerun()
+    except AttributeError:
+        # Fallback para versiones antiguas de Streamlit (1.28.0)
+        try:
+            query_params = st.experimental_get_query_params()
+            if query_params.get("reset", [""])[0] == "true":
+                st.session_state.consulta = ""
+                st.session_state.resultados = []
+                st.session_state.sinonimos = []
+                st.session_state.tipo_busqueda = "texto"
+                st.session_state.pagina_actual = 1
+                st.session_state.ultima_busqueda = ""
+                st.session_state.search_time_ms = 0
+                st.session_state.consulta_input = ""
+                st.experimental_set_query_params()
+                st.rerun()
+        except:
+            pass
 
     # =====================================================
     # SIDEBAR - LOGO COMO BOTÓN DE INICIO + FILTROS
