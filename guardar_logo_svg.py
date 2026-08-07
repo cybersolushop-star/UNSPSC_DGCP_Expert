@@ -1,4 +1,10 @@
+"""
+Script para guardar el logo como SVG
+"""
+from pathlib import Path
 
+# El código SVG de tu logo (lo extraemos de matplotlib)
+SVG_LOGO = """
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200">
     <!-- Fondo redondo -->
     <circle cx="50" cy="50" r="48" fill="#052A66" stroke="white" stroke-width="2"/>
@@ -53,3 +59,27 @@
     <rect x="62" y="56" width="2" height="2" fill="white"/>
     <rect x="64" y="56" width="2" height="2" fill="white"/>
 </svg>
+"""
+
+def guardar_svg():
+    """Guarda el logo como SVG en la carpeta data"""
+    data_dir = Path("data")
+    data_dir.mkdir(exist_ok=True)
+    
+    svg_path = data_dir / "logo.svg"
+    with open(svg_path, "w", encoding="utf-8") as f:
+        f.write(SVG_LOGO)
+    
+    print(f"✅ Logo SVG guardado en: {svg_path}")
+    
+    # También guardamos una versión HTML para copiar directamente
+    html_path = data_dir / "logo_html.txt"
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(SVG_LOGO)
+    
+    print(f"✅ Versión HTML guardada en: {html_path}")
+    print(f"\n📋 Para usarlo en Streamlit, copia el código de:")
+    print(f"   {html_path}")
+
+if __name__ == "__main__":
+    guardar_svg()

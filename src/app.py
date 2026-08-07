@@ -148,6 +148,32 @@ def inject_custom_css():
             border: none !important;
         }
         
+        /* Logo en sidebar */
+        .sidebar-logo-container {
+            text-align: center;
+            padding: 15px 0 10px 0;
+            border-bottom: 2px solid #334155;
+            margin-bottom: 15px;
+        }
+        .sidebar-logo-wrapper {
+            background: white;
+            border-radius: 15px;
+            padding: 10px;
+            margin: 0 auto;
+            max-width: 180px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .sidebar-logo-wrapper svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .sidebar-logo-title {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+        
         .result-card {
             border-radius: 12px;
             border: 1px solid #e8e8e8;
@@ -202,27 +228,6 @@ def inject_custom_css():
         }
         .stExpander > div:first-child {
             border-radius: 12px !important;
-        }
-        
-        /* Logo en sidebar */
-        .sidebar-logo-container {
-            text-align: center;
-            padding: 15px 0 10px 0;
-            border-bottom: 2px solid #334155;
-            margin-bottom: 15px;
-        }
-        .sidebar-logo-wrapper {
-            background: white;
-            border-radius: 15px;
-            padding: 10px;
-            margin: 0 auto;
-            max-width: 200px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .sidebar-logo-title {
-            font-size: 0.9rem;
-            color: #94a3b8;
-            margin-top: 8px;
         }
         
         /* Contenedor de resultados y exportar */
@@ -516,40 +521,54 @@ def main():
     inject_custom_css()
 
     # =====================================================
-    # SIDEBAR - LOGO ELEGANTE + FILTROS
+    # SIDEBAR - LOGO SVG + FILTROS
     # =====================================================
     with st.sidebar:
         # =====================================================
-        # LOGO CON DISEÑO ELEGANTE CENTRADO
+        # LOGO SVG DESDE ARCHIVO (SIN CACHÉ)
         # =====================================================
         try:
-            from pathlib import Path
-            import os
-            
-            # Buscar el logo en diferentes ubicaciones posibles
-            logo_paths = [
-                Path("data/logo.png"),
-                Path("./data/logo.png"),
-                Path(os.path.join(os.path.dirname(__file__), "data", "logo.png")),
-                Path(os.path.join(os.getcwd(), "data", "logo.png"))
-            ]
-            
-            logo_encontrado = None
-            for path in logo_paths:
-                if path.exists():
-                    logo_encontrado = path
-                    break
-            
-            if logo_encontrado:
-                # Logo con diseño elegante
+            # Intentar cargar el SVG desde el archivo
+            svg_path = Path("data/logo_html.txt")
+            if svg_path.exists():
+                with open(svg_path, "r", encoding="utf-8") as f:
+                    svg_content = f.read().strip()
+                
+                # Estilos para el logo
                 st.markdown("""
-                <div class="sidebar-logo-container">
-                    <div class="sidebar-logo-wrapper">
+                <style>
+                    .sidebar-logo-container {
+                        text-align: center;
+                        padding: 15px 0 10px 0;
+                        border-bottom: 2px solid #334155;
+                        margin-bottom: 15px;
+                    }
+                    .sidebar-logo-wrapper {
+                        background: white;
+                        border-radius: 15px;
+                        padding: 10px;
+                        margin: 0 auto;
+                        max-width: 180px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                    }
+                    .sidebar-logo-wrapper svg {
+                        display: block;
+                        width: 100%;
+                        height: auto;
+                    }
+                    .sidebar-logo-title {
+                        font-size: 0.9rem;
+                        color: #94a3b8;
+                        margin-top: 8px;
+                    }
+                </style>
                 """, unsafe_allow_html=True)
                 
-                st.image(str(logo_encontrado), use_container_width=True)
-                
-                st.markdown("""
+                # Mostrar el logo con el SVG
+                st.markdown(f"""
+                <div class="sidebar-logo-container">
+                    <div class="sidebar-logo-wrapper">
+                        {svg_content}
                     </div>
                     <div class="sidebar-logo-title">
                         Buscador de Bienes y Servicios
@@ -557,7 +576,7 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                # Fallback con emoji y diseño elegante
+                # Fallback con emoji si no existe el archivo
                 st.markdown("""
                 <div class="sidebar-logo-container">
                     <div style="
@@ -766,7 +785,7 @@ def main():
         st.session_state.ultima_busqueda = ""
 
     # =====================================================
-    # MOSTRAR RESULTADOS (Solo cantidad de resultados)
+    # MOSTRAR RESULTADOS
     # =====================================================
     
     resultados = st.session_state.resultados
