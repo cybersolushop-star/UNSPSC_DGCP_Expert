@@ -313,7 +313,61 @@ def cargar_modelo():
 
 @st.cache_data
 def cargar_sinonimos():
+    """Carga los sinónimos de la base de datos con debug"""
     try:
+        import os
+        import time
+        
+        # =====================================================
+        # DEBUG - Verificar base de datos
+        # =====================================================
+        with st.expander("🔍 DEBUG - Cargando sinónimos", expanded=True):
+            db_path = "db/DGCP_UNSPSC.db"
+            st.write(f"📁 Ruta absoluta: {os.path.abspath(db_path)}")
+            st.write(f"📁 ¿Existe el archivo? {os.path.exists(db_path)}")
+            
+            if os.path.exists(db_path):
+                st.write(f"📁 Tamaño: {os.path.getsize(db_path):,} bytes")
+                st.write(f"📁 Última modificación: {time.ctime(os.path.getmtime(db_path))}")
+            
+            # Conectar y verificar
+            conn = sqlite3.connect(db_path)
+            cur = conn.cursor()
+            
+            # Verificar tablas
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tablas = [t[0] for t in cur.fetchall()]
+            st.write(f"📋 Tablas en DB: {tablas}")
+            
+            # Verificar tabla sinonimos
+            if 'sinonimos' in tablas:
+                cur.execute("SELECT COUNT(*) FROM sinonimos")
+                total = cur.fetchone()[0]
+                st.write(f"📊 Total de sinónimos en DB: {total:,}")
+                
+                # Buscar "lápiz"
+                cur.execute("SELECT sinonimo FROM sinonimos WHERE termino LIKE ? LIMIT 10", ('%lápiz%',))
+                lapiz = cur.fetchall()
+                st.write(f"📌 Sinónimos de 'lápiz' (primeros 10): {len(lapiz)}")
+                for s in lapiz:
+                    st.write(f"  - {s[0]}")
+                
+                # Buscar "Servicios de cáterin"
+                cur.execute("SELECT sinonimo FROM sinonimos WHERE termino LIKE ? LIMIT 10", ('%cáterin%',))
+                caterin = cur.fetchall()
+                st.write(f"📌 Sinónimos de 'Servicios de cáterin' (primeros 10): {len(caterin)}")
+                for s in caterin:
+                    st.write(f"  - {s[0]}")
+            else:
+                st.error("❌ La tabla 'sinonimos' NO existe en la base de datos")
+            
+            conn.close()
+            st.write("✅ Debug completado")
+            st.divider()
+        
+        # =====================================================
+        # Código original de carga de sinónimos
+        # =====================================================
         conn = sqlite3.connect("db/DGCP_UNSPSC.db")
         df = pd.read_sql("SELECT termino, sinonimo FROM sinonimos", conn)
         conn.close()
@@ -325,8 +379,23 @@ def cargar_sinonimos():
                 dic[t] = []
             if s not in dic[t]:
                 dic[t].append(s)
+        
+        # Mostrar resumen del diccionario
+        with st.expander("📊 Resumen de sinónimos cargados"):
+            st.write(f"📊 Total de términos con sinónimos: {len(dic)}")
+            # Mostrar algunos ejemplos
+            ejemplos = list(dic.items())[:5]
+            st.write("📋 Ejemplos:")
+            for term, sins in ejemplos:
+                st.write(f"  • {term}: {len(sins)} sinónimos")
+        
         return dic
-    except:
+        
+    except Exception as e:
+        st.error(f"❌ Error cargando sinónimos: {e}")
+        import traceback
+        with st.expander("🔍 Detalles del error"):
+            st.code(traceback.format_exc())
         return {}
 
 # =====================================================
