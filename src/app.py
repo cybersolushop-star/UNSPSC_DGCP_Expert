@@ -22,10 +22,12 @@ import time
 # Importar DatabaseManager desde database
 from database import DatabaseManager
 
-# Configuración de la página
+# =====================================================
+# CONFIGURACIÓN DE LA PÁGINA
+# =====================================================
 st.set_page_config(
     page_title="UNSPSC DGCP BUSCADOR",
-    page_icon="🔎",
+    page_icon="https://raw.githubusercontent.com/cybersolushop-star/UNSPSC_DGCP_Expert/6df141cc0e6021de921153b1d343128bc6e35290/data/logo.png",
     layout="wide"
 )
 
@@ -294,7 +296,7 @@ def es_busqueda_por_cuenta(consulta):
     return bool(re.match(r'^\d+\.\d+\.\d+\.\d+\.\d+$', consulta_limpia))
 
 # =====================================================
-# CARGAR DATOS
+# CARGAR DATOS DESDE EXCEL
 # =====================================================
 
 @st.cache_data
@@ -414,7 +416,6 @@ def mostrar_resultado(score, fila, rank):
     definicion = str(fila.get('Definición', '')) if pd.notna(fila.get('Definición', '')) else ''
     sinonimos = str(fila.get('Sinónimos', '')) if pd.notna(fila.get('Sinónimos', '')) else ''
     
-    # Obtener jerarquía desde SQLite
     segmento, familia, clase = obtener_jerarquia(codigo)
     
     titulo = f"{score:.0f}% | {codigo} | {descripcion[:50]}..."
@@ -509,7 +510,7 @@ def main():
             pass
 
     # =====================================================
-    # SIDEBAR CON FILTROS DESDE SQLITE
+    # SIDEBAR CON FILTROS
     # =====================================================
     with st.sidebar:
         # Logo
@@ -570,7 +571,6 @@ def main():
             # Cargar Excel con los datos de búsqueda
             df_excel = cargar_catalogo_excel()
             if not df_excel.empty:
-                # Filtrar Excel por los códigos de SQLite
                 df_excel['Código'] = df_excel['Código'].astype(str)
                 df_filtrado = df_excel[df_excel['Código'].isin(codigos_filtrados)]
                 st.session_state.df_filtrado = df_filtrado
