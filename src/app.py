@@ -430,6 +430,16 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     palabras_clave = [p for p in consulta_norm.split() if len(p) > 2 and p not in stopwords]
     terminos = [consulta_norm] + sinonimos + palabras_clave
     
+    # =====================================================
+    # DEBUG - Ver términos de búsqueda
+    # =====================================================
+    with st.expander("🔍 DEBUG - Términos de búsqueda"):
+        st.write(f"📌 Términos utilizados ({len(terminos)}):")
+        for i, t in enumerate(terminos[:15]):
+            st.write(f"  {i+1}. {t}")
+        if len(terminos) > 15:
+            st.write(f"  ... y {len(terminos)-15} más")
+    
     emb_consulta = modelo.encode(consulta_norm, convert_to_tensor=True, show_progress_bar=False)
     
     if not isinstance(embeddings, torch.Tensor):
@@ -444,6 +454,14 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     top_scores_list = top_scores.cpu().numpy().tolist()
     
     resultados = []
+    
+    # =====================================================
+    # DEBUG - Mostrar primeros ítems considerados
+    # =====================================================
+    with st.expander("🔍 DEBUG - Ítems considerados (top 5)"):
+        for i, idx in enumerate(top_indices_list[:5]):
+            fila = df.iloc[idx]
+            st.write(f"📌 Ítem {i+1}: {fila['Descripción']} (score semántico: {top_scores_list[i]:.3f})")
     
     for idx, sem_score in zip(top_indices_list, top_scores_list):
         fila = df.iloc[idx]
@@ -502,6 +520,14 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
         
         if score >= 40 or exacto:
             resultados.append((score, exacto, fila))
+    
+    # =====================================================
+    # DEBUG - Resultados encontrados
+    # =====================================================
+    with st.expander("🔍 DEBUG - Resultados de búsqueda"):
+        st.write(f"📌 Resultados encontrados: {len(resultados)}")
+        for i, (score, exacto, fila) in enumerate(resultados[:10]):
+            st.write(f"  {i+1}. {fila['Descripción']} (score: {score:.0f}%, exacto: {exacto})")
     
     resultados.sort(key=lambda x: (-x[1], -x[0]))
     return resultados[:200]
