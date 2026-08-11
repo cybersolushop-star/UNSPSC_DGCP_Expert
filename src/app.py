@@ -416,6 +416,9 @@ def mostrar_resultado(score, fila, rank):
     definicion = str(fila.get('Definición', '')) if pd.notna(fila.get('Definición', '')) else ''
     sinonimos = str(fila.get('Sinónimos', '')) if pd.notna(fila.get('Sinónimos', '')) else ''
     
+    # Obtener la cuenta DIGEPRES desde la columna Auxiliar del Excel
+    cuenta_excel = str(fila.get('Auxiliar', '')) if pd.notna(fila.get('Auxiliar', '')) else ''
+    
     segmento, familia, clase = obtener_jerarquia(codigo)
     
     titulo = f"{score:.0f}% | {codigo} | {descripcion[:50]}..."
@@ -435,20 +438,52 @@ def mostrar_resultado(score, fila, rank):
         
         with col2:
             st.write("**💰 Clasificación DIGEPRES**")
-            try:
-                cuenta, descripcion_cuenta, fuente, confianza = db.obtener_digepres(
-                    codigo[:2] if codigo != 'No disponible' and len(codigo) >= 2 else "",
-                    descripcion_item=descripcion
-                )
-                if cuenta:
-                    st.success(f"**Cuenta:** {cuenta}")
-                    if descripcion_cuenta:
-                        st.write(f"**Descripción:** {descripcion_cuenta}")
-                    st.caption(f"🔍 Fuente: {fuente or 'N/A'} | Confianza: {confianza:.0%}")
-                else:
-                    st.warning("Sin clasificación DIGEPRES asignada")
-            except:
-                st.warning("Sin clasificación DIGEPRES asignada")
+            
+            # 1. Primero usar la cuenta del Excel si existe
+            if cuenta_excel and cuenta_excel != 'nan' and len(cuenta_excel) > 5:
+                st.success(f"**Cuenta:** {cuenta_excel}")
+                st.caption("📌 Fuente: Datos del Excel (Auxiliar)")
+            else:
+                # 2. Buscar en la tabla consultas de SQLite
+                cuenta = None
+                descripcion_cuenta = None
+                fuente = None
+                confianza = 0
+                
+                try:
+                    conn = sqlite3.connect("db/DGCP_UNSPSC.db")
+                    cur = conn.cursor()
+                    
+                    # Buscar por código completo
+                    cur.execute("""
+                        SELECT cuenta, descripcion, fuente, confianza 
+                        FROM consultas 
+                        WHERE codigo_unspsc = ? OR codigo = ?
+                    """, (codigo, codigo))
+                    resultado = cur.fetchone()
+                    conn.close()
+                    
+                    if resultado:
+                        cuenta, descripcion_cuenta, fuente, confianza = resultado
+                        st.success(f"**Cuenta:** {cuenta}")
+                        if descripcion_cuenta:
+                            st.write(f"**Descripción:** {descripcion_cuenta}")
+                        st.caption(f"🔍 Fuente: {fuente or 'SQLite'} | Confianza: {confianza:.0%}")
+                    else:
+                        # 3. Fallback: usar el método original
+                        cuenta, descripcion_cuenta, fuente, confianza = db.obtener_digepres(
+                            codigo[:2] if codigo != 'No disponible' and len(codigo) >= 2 else "",
+                            descripcion_item=descripcion
+                        )
+                        if cuenta:
+                            st.success(f"**Cuenta:** {cuenta}")
+                            if descripcion_cuenta:
+                                st.write(f"**Descripción:** {descripcion_cuenta}")
+                            st.caption(f"🔍 Fuente: {fuente or 'N/A'} | Confianza: {confianza:.0%}")
+                        else:
+                            st.warning("Sin clasificación DIGEPRES asignada")
+                except Exception as e:
+                    st.warning(f"⚠️ Error al buscar cuenta: {e}")
 
 # =====================================================
 # FUNCIÓN PRINCIPAL
