@@ -371,6 +371,14 @@ def cargar_sinonimos():
         conn = sqlite3.connect("db/DGCP_UNSPSC.db")
         df = pd.read_sql("SELECT termino, sinonimo FROM sinonimos", conn)
         conn.close()
+        
+        # DEBUG: Verificar el dataframe
+        with st.expander("🔍 DEBUG - DataFrame de sinónimos"):
+            st.write(f"📊 Filas en el dataframe: {len(df)}")
+            st.write(f"📋 Columnas: {df.columns.tolist()}")
+            st.write("📋 Primeros 5 registros:")
+            st.dataframe(df.head(5))
+        
         dic = {}
         for _, row in df.iterrows():
             t = normalizar(row["termino"])
@@ -380,14 +388,26 @@ def cargar_sinonimos():
             if s not in dic[t]:
                 dic[t].append(s)
         
-        # Mostrar resumen del diccionario
-        with st.expander("📊 Resumen de sinónimos cargados"):
+        # DEBUG: Verificar el diccionario
+        with st.expander("🔍 DEBUG - Diccionario de sinónimos"):
             st.write(f"📊 Total de términos con sinónimos: {len(dic)}")
             # Mostrar algunos ejemplos
-            ejemplos = list(dic.items())[:5]
-            st.write("📋 Ejemplos:")
+            ejemplos = list(dic.items())[:10]
+            st.write("📋 Ejemplos de términos con sinónimos:")
             for term, sins in ejemplos:
-                st.write(f"  • {term}: {len(sins)} sinónimos")
+                st.write(f"  • {term}: {len(sins)} sinónimos (primeros 3: {sins[:3]})")
+            
+            # Verificar específicamente "lapiz"
+            if "lapiz" in dic:
+                st.write(f"✅ 'lapiz' encontrado en el diccionario con {len(dic['lapiz'])} sinónimos:")
+                for sin in dic['lapiz'][:10]:
+                    st.write(f"    - {sin}")
+            else:
+                st.write("❌ 'lapiz' NO está en el diccionario")
+                # Buscar claves similares
+                claves_similares = [k for k in dic.keys() if "lap" in k]
+                if claves_similares:
+                    st.write(f"📌 Claves similares encontradas: {claves_similares[:10]}")
         
         return dic
         
