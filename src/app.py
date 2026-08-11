@@ -294,7 +294,7 @@ def es_busqueda_por_cuenta(consulta):
     return bool(re.match(r'^\d+\.\d+\.\d+\.\d+\.\d+$', consulta_limpia))
 
 # =====================================================
-# CARGAR DATOS DESDE EXCEL
+# CARGAR DATOS
 # =====================================================
 
 @st.cache_data
@@ -304,7 +304,6 @@ def cargar_catalogo_excel():
         excel_path = Path("data/mapeo_completo.xlsx")
         if excel_path.exists():
             df = pd.read_excel(excel_path)
-            # Asegurar nombres de columnas
             if 'Código' not in df.columns:
                 if len(df.columns) > 0:
                     df.rename(columns={df.columns[0]: 'Código'}, inplace=True)
@@ -318,12 +317,10 @@ def cargar_catalogo_excel():
                 if len(df.columns) > 3:
                     df.rename(columns={df.columns[3]: 'Sinónimos'}, inplace=True)
             
-            # Asegurar que las columnas necesarias existan
             columnas_necesarias = ['Código', 'Descripción', 'Definición', 'Sinónimos']
             for col in columnas_necesarias:
                 if col not in df.columns:
                     df[col] = ''
-            
             return df
         else:
             return pd.DataFrame()
@@ -331,8 +328,8 @@ def cargar_catalogo_excel():
         return pd.DataFrame()
 
 @st.cache_data
-def cargar_catalogo():
-    """Carga el catálogo desde la base de datos SQLite (fallback)"""
+def cargar_catalogo_sqlite():
+    """Carga el catálogo desde la base de datos SQLite con jerarquía"""
     try:
         conn = sqlite3.connect("db/DGCP_UNSPSC.db")
         df = pd.read_sql("SELECT * FROM catalogo", conn)
@@ -342,7 +339,7 @@ def cargar_catalogo():
         return pd.DataFrame()
 
 # =====================================================
-# BUSCADOR EN EXCEL CON PESO SEMÁNTICO
+# BUSCADOR EN EXCEL
 # =====================================================
 
 def buscar_en_excel(df, consulta):
@@ -376,7 +373,7 @@ def buscar_en_excel(df, consulta):
             score += 30
         
         if score > 0:
-            resultados.append({'fila': row, 'score': score, 'descripcion': row.get('Descripción', 'Sin descripción')})
+            resultados.append({'fila': row, 'score': score})
     
     resultados.sort(key=lambda x: x['score'], reverse=True)
     
@@ -385,80 +382,12 @@ def buscar_en_excel(df, consulta):
     return pd.DataFrame()
 
 # =====================================================
-# BUSCADOR HÍBRIDO CON EMBEDDINGS
-# =====================================================
-
-@st.cache_data
-def cargar_embeddings():
-    try:
-        data = torch.load("db/embeddings.pt", map_location="cpu")
-        if isinstance(data, dict):
-            if 'embeddings' in data:
-                return data['embeddings']
-            for key, value in data.items():
-                if isinstance(value, torch.Tensor):
-                    return value
-        if isinstance(data, torch.Tensor):
-            return data
-        return None
-    except:
-        return None
-
-@st.cache_resource
-def cargar_modelo():
-    from sentence_transformers import SentenceTransformer
-    return SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-
-def buscar_hibrido(df, consulta):
-    """Búsqueda híbrida: texto + semántica"""
-    # 1. Primero búsqueda por texto
-    df_texto = buscar_en_excel(df, consulta)
-    resultados_por_codigo = {}
-    
-    if not df_texto.empty:
-        for _, fila in df_texto.iterrows():
-            codigo = fila.get('Código', '')
-            if codigo:
-                resultados_por_codigo[codigo] = {'fila': fila, 'score': 100, 'semantico': False}
-    
-    # 2. Búsqueda semántica (solo si hay embeddings)
-    embeddings = cargar_embeddings()
-    modelo = cargar_modelo()
-    
-    if embeddings is not None and modelo is not None:
-        try:
-            from sentence_transformers import util
-            consulta_embedding = modelo.encode(consulta, convert_to_tensor=True, show_progress_bar=False)
-            similitudes = util.cos_sim(consulta_embedding, embeddings)[0]
-            
-            top_k = min(100, len(similitudes))
-            top_scores, top_indices = torch.topk(similitudes, top_k)
-            
-            for idx, score in zip(top_indices.cpu().numpy().tolist(), top_scores.cpu().numpy().tolist()):
-                if score > 0.35:
-                    fila = df.iloc[idx]
-                    codigo = fila.get('Código', '')
-                    if codigo and codigo not in resultados_por_codigo:
-                        resultados_por_codigo[codigo] = {
-                            'fila': fila,
-                            'score': float(score) * 80 + 20,
-                            'semantico': True
-                        }
-        except Exception as e:
-            pass
-    
-    # Convertir a lista y ordenar
-    resultados = list(resultados_por_codigo.values())
-    resultados.sort(key=lambda x: x['score'], reverse=True)
-    
-    return resultados
-
-# =====================================================
 # FUNCIÓN PARA OBTENER JERARQUÍA DESDE SQLITE
 # =====================================================
 
 @st.cache_data
 def obtener_jerarquia(codigo):
+    """Obtiene Segmento, Familia y Clase desde SQLite usando el código"""
     if not codigo or codigo == 'No disponible':
         return None, None, None
     try:
@@ -477,7 +406,7 @@ def obtener_jerarquia(codigo):
 # MOSTRAR RESULTADO
 # =====================================================
 
-def mostrar_resultado(score, fila, rank, es_semantico=False):
+def mostrar_resultado(score, fila, rank):
     db = DatabaseManager()
     
     codigo = str(fila.get('Código', 'No disponible')) if pd.notna(fila.get('Código', 'No disponible')) else 'No disponible'
@@ -485,10 +414,10 @@ def mostrar_resultado(score, fila, rank, es_semantico=False):
     definicion = str(fila.get('Definición', '')) if pd.notna(fila.get('Definición', '')) else ''
     sinonimos = str(fila.get('Sinónimos', '')) if pd.notna(fila.get('Sinónimos', '')) else ''
     
+    # Obtener jerarquía desde SQLite
     segmento, familia, clase = obtener_jerarquia(codigo)
     
-    etiqueta = "🧠 Semántica" if es_semantico else "📌 Exacta"
-    titulo = f"{etiqueta} | {score:.0f}% | {codigo} | {descripcion[:50]}..."
+    titulo = f"{score:.0f}% | {codigo} | {descripcion[:50]}..."
     
     with st.expander(titulo):
         col1, col2 = st.columns([2, 1])
@@ -502,8 +431,6 @@ def mostrar_resultado(score, fila, rank, es_semantico=False):
             st.write("**📂 Segmento:**", segmento if segmento else "No disponible")
             st.write("**📁 Familia:**", familia if familia else "No disponible")
             st.write("**📄 Clase:**", clase if clase else "No disponible")
-            if es_semantico:
-                st.caption("🔍 Resultado por similitud semántica")
         
         with col2:
             st.write("**💰 Clasificación DIGEPRES**")
@@ -539,6 +466,8 @@ def main():
         st.session_state.df_filtrado = pd.DataFrame()
     if "df_catalogo" not in st.session_state:
         st.session_state.df_catalogo = pd.DataFrame()
+    if "df_sqlite" not in st.session_state:
+        st.session_state.df_sqlite = pd.DataFrame()
     if "pagina_actual" not in st.session_state:
         st.session_state.pagina_actual = 1
     if "ultima_busqueda" not in st.session_state:
@@ -580,7 +509,7 @@ def main():
             pass
 
     # =====================================================
-    # SIDEBAR CON FILTROS
+    # SIDEBAR CON FILTROS DESDE SQLITE
     # =====================================================
     with st.sidebar:
         # Logo
@@ -600,57 +529,64 @@ def main():
         st.divider()
         
         # =====================================================
-        # FILTROS (RESTAURADOS)
+        # FILTROS (DESDE SQLITE)
         # =====================================================
         st.header("📂 Filtros")
         
-        # Cargar catálogo desde Excel
-        df_catalogo = cargar_catalogo_excel()
+        # Cargar datos desde SQLite para los filtros (tiene Segmento, Familia, Clase)
+        df_sqlite = cargar_catalogo_sqlite()
         
-        if df_catalogo.empty:
-            df_catalogo = cargar_catalogo()
-        
-        if not df_catalogo.empty:
-            st.session_state.df_catalogo = df_catalogo
+        if not df_sqlite.empty:
+            st.session_state.df_sqlite = df_sqlite
             
             # Filtro por Segmento
-            if 'Segmento' in df_catalogo.columns:
-                segmentos = sorted(df_catalogo['Segmento'].dropna().unique())
+            if 'Segmento' in df_sqlite.columns:
+                segmentos = sorted(df_sqlite['Segmento'].dropna().unique())
                 segmento_seleccionado = st.selectbox("Segmento", ["Todos"] + list(segmentos))
                 if segmento_seleccionado != "Todos":
-                    df_filtrado = df_catalogo[df_catalogo['Segmento'] == segmento_seleccionado]
+                    df_filtrado_sqlite = df_sqlite[df_sqlite['Segmento'] == segmento_seleccionado]
                 else:
-                    df_filtrado = df_catalogo
+                    df_filtrado_sqlite = df_sqlite
             else:
-                df_filtrado = df_catalogo
+                df_filtrado_sqlite = df_sqlite
             
             # Filtro por Familia
-            if 'Familia' in df_filtrado.columns:
-                familias = sorted(df_filtrado['Familia'].dropna().unique())
+            if 'Familia' in df_filtrado_sqlite.columns:
+                familias = sorted(df_filtrado_sqlite['Familia'].dropna().unique())
                 familia_seleccionada = st.selectbox("Familia", ["Todas"] + list(familias))
                 if familia_seleccionada != "Todas":
-                    df_filtrado = df_filtrado[df_filtrado['Familia'] == familia_seleccionada]
+                    df_filtrado_sqlite = df_filtrado_sqlite[df_filtrado_sqlite['Familia'] == familia_seleccionada]
             
             # Filtro por Clase
-            if 'Clase' in df_filtrado.columns:
-                clases = sorted(df_filtrado['Clase'].dropna().unique())
+            if 'Clase' in df_filtrado_sqlite.columns:
+                clases = sorted(df_filtrado_sqlite['Clase'].dropna().unique())
                 clase_seleccionada = st.selectbox("Clase", ["Todas"] + list(clases))
                 if clase_seleccionada != "Todas":
-                    df_filtrado = df_filtrado[df_filtrado['Clase'] == clase_seleccionada]
+                    df_filtrado_sqlite = df_filtrado_sqlite[df_filtrado_sqlite['Clase'] == clase_seleccionada]
             
-            st.caption(f"📊 {len(df_filtrado)} ítems disponibles")
-            st.session_state.df_filtrado = df_filtrado
+            # Guardar los códigos filtrados
+            codigos_filtrados = df_filtrado_sqlite['Código UNSPSC'].astype(str).tolist()
+            
+            # Cargar Excel con los datos de búsqueda
+            df_excel = cargar_catalogo_excel()
+            if not df_excel.empty:
+                # Filtrar Excel por los códigos de SQLite
+                df_excel['Código'] = df_excel['Código'].astype(str)
+                df_filtrado = df_excel[df_excel['Código'].isin(codigos_filtrados)]
+                st.session_state.df_filtrado = df_filtrado
+                st.caption(f"📊 {len(df_filtrado)} ítems disponibles")
+            else:
+                st.session_state.df_filtrado = pd.DataFrame()
+                st.warning("⚠️ No se pudo cargar el catálogo")
         else:
-            st.warning("⚠️ No se pudo cargar el catálogo")
-            st.session_state.df_filtrado = pd.DataFrame()
-        
-        st.divider()
-        
-        # =====================================================
-        # CHECKBOX PARA BÚSQUEDA SEMÁNTICA
-        # =====================================================
-        usar_semantica = st.checkbox("🧠 Búsqueda semántica", value=True, 
-                                       help="Encuentra ítems relacionados por significado")
+            # Fallback: usar Excel directamente
+            df_excel = cargar_catalogo_excel()
+            if not df_excel.empty:
+                st.session_state.df_filtrado = df_excel
+                st.caption(f"📊 {len(df_excel)} ítems disponibles (sin filtros)")
+            else:
+                st.warning("⚠️ No se pudo cargar el catálogo")
+                st.session_state.df_filtrado = pd.DataFrame()
         
         st.divider()
         
@@ -704,8 +640,6 @@ def main():
                 df = st.session_state.df_filtrado
                 if df.empty:
                     df = cargar_catalogo_excel()
-                    if df.empty:
-                        df = cargar_catalogo()
                 
                 if df is not None and not df.empty:
                     if es_busqueda_por_codigo(consulta):
@@ -713,31 +647,19 @@ def main():
                         if not resultados_codigo.empty:
                             resultados = []
                             for _, fila in resultados_codigo.iterrows():
-                                resultados.append((100.0, fila, False))
+                                resultados.append((100.0, fila))
                             st.session_state.resultados = resultados
                         else:
                             st.session_state.resultados = []
                     else:
-                        if usar_semantica:
-                            # Búsqueda híbrida (texto + semántica)
-                            resultados_hibridos = buscar_hibrido(df, consulta)
-                            if resultados_hibridos:
-                                resultados = []
-                                for r in resultados_hibridos:
-                                    resultados.append((r['score'], r['fila'], r.get('semantico', False)))
-                                st.session_state.resultados = resultados
-                            else:
-                                st.session_state.resultados = []
+                        df_resultados = buscar_en_excel(df, consulta)
+                        if not df_resultados.empty:
+                            resultados = []
+                            for _, fila in df_resultados.iterrows():
+                                resultados.append((100.0, fila))
+                            st.session_state.resultados = resultados
                         else:
-                            # Solo búsqueda por texto
-                            df_resultados = buscar_en_excel(df, consulta)
-                            if not df_resultados.empty:
-                                resultados = []
-                                for _, fila in df_resultados.iterrows():
-                                    resultados.append((100.0, fila, False))
-                                st.session_state.resultados = resultados
-                            else:
-                                st.session_state.resultados = []
+                            st.session_state.resultados = []
                 else:
                     st.warning("No hay datos para buscar")
                     
@@ -774,9 +696,8 @@ def main():
         col_export, col_empty = st.columns([1, 5])
         with col_export:
             export_data = []
-            for score, fila, es_semantico in resultados:
+            for score, fila in resultados:
                 export_data.append({
-                    "Tipo": "Semántico" if es_semantico else "Exacta",
                     "Score": round(score, 2),
                     "Código": fila.get("Código", ""),
                     "Descripción": fila.get("Descripción", ""),
@@ -826,8 +747,8 @@ def main():
                         st.session_state.pagina_actual += 1
         
         rank = inicio + 1
-        for score, fila, es_semantico in resultados_pagina:
-            mostrar_resultado(score, fila, rank, es_semantico)
+        for score, fila in resultados_pagina:
+            mostrar_resultado(score, fila, rank)
             rank += 1
         
         if total_paginas > 1:
