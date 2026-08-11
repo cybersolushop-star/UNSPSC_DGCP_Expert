@@ -346,11 +346,11 @@ def cargar_catalogo():
         return pd.DataFrame()
 
 # =====================================================
-# BUSCADOR EN EXCEL
+# BUSCADOR EN EXCEL (CON PESO SEMÁNTICO)
 # =====================================================
 
 def buscar_en_excel(df, consulta):
-    """Busca la consulta en todas las columnas del DataFrame"""
+    """Busca la consulta en todas las columnas del DataFrame con peso semántico"""
     if df.empty:
         return pd.DataFrame()
     
@@ -361,6 +361,10 @@ def buscar_en_excel(df, consulta):
     
     # Columnas a buscar (todas las columnas de texto)
     columnas_texto = [col for col in df.columns if df[col].dtype == 'object']
+    
+    # Columnas con mayor peso semántico (descripción y sinónimos)
+    columnas_principales = ['Descripción', 'Sinónimos', 'Definición', 'Denominación']
+    columnas_principales = [col for col in columnas_principales if col in df.columns]
     
     for idx, row in df.iterrows():
         score = 0
@@ -373,20 +377,43 @@ def buscar_en_excel(df, consulta):
             valor_norm = normalizar(valor)
             texto_completo += " " + valor_norm
             
+            # Peso según la columna
+            peso = 2.0 if col in columnas_principales else 0.5
+            
             # Coincidencia exacta de la consulta completa
             if consulta_norm in valor_norm:
-                score += 50
-                coincidencias.append(f"{col}: '{consulta}' encontrado")
+                score += 50 * peso
+                coincidencias.append(f"{col}: '{consulta}' encontrado (peso {peso})")
             
             # Coincidencia de palabras individuales
             for palabra in palabras:
                 if len(palabra) > 2 and palabra in valor_norm:
-                    score += 10
+                    score += 10 * peso
                     coincidencias.append(f"{col}: '{palabra}' encontrado")
         
-        # Bonus si la consulta está en el texto completo
+        # Bonus semántico: si la consulta está en el texto completo
         if consulta_norm in texto_completo:
-            score += 20
+            score += 30
+        
+        # Bonus por palabras clave específicas
+        palabras_clave_negocio = {
+            'construcción': 15,
+            'instalación': 15,
+            'reparación': 15,
+            'mantenimiento': 12,
+            'servicio': 10,
+            'obra': 12,
+            'muro': 10,
+            'pared': 10,
+            'perimetral': 8,
+            'contención': 10,
+            'infraestructura': 10
+        }
+        
+        for palabra_clave, peso_extra in palabras_clave_negocio.items():
+            if palabra_clave in consulta_norm:
+                if palabra_clave in texto_completo:
+                    score += peso_extra
         
         # Si tiene puntaje, agregar a resultados
         if score > 0:
@@ -407,119 +434,120 @@ def buscar_en_excel(df, consulta):
         return pd.DataFrame()
 
 # =====================================================
-# BUSCADOR HÍBRIDO (con embeddings) - FALLBACK
+# BUSCADOR SEMÁNTICO CON EMBEDDINGS
 # =====================================================
 
 @st.cache_data
 def cargar_embeddings():
-    data = torch.load("db/embeddings.pt", map_location="cpu")
-    if isinstance(data, dict):
-        if 'embeddings' in data:
-            return data['embeddings']
-        else:
-            for key, value in data.items():
-                if isinstance(value, torch.Tensor):
-                    return value
-    if isinstance(data, torch.Tensor):
-        return data
-    raise ValueError(f"Formato de embeddings no soportado: {type(data)}")
+    """Carga los embeddings pre-calculados"""
+    try:
+        data = torch.load("db/embeddings.pt", map_location="cpu")
+        if isinstance(data, dict):
+            if 'embeddings' in data:
+                return data['embeddings']
+            else:
+                for key, value in data.items():
+                    if isinstance(value, torch.Tensor):
+                        return value
+        if isinstance(data, torch.Tensor):
+            return data
+        return None
+    except Exception as e:
+        st.warning(f"No se pudieron cargar embeddings: {e}")
+        return None
 
 @st.cache_resource
 def cargar_modelo():
+    """Carga el modelo de SentenceTransformers para embeddings"""
     from sentence_transformers import SentenceTransformer
     return SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
-def buscar_hibrido(df, embeddings, consulta, sinonimos):
-    from rapidfuzz import fuzz
+def buscar_semantico(df, consulta, embeddings, modelo):
+    """
+    Busca usando embeddings semánticos (similitud de coseno)
+    """
     from sentence_transformers import util
     import torch
     
-    modelo = cargar_modelo()
-    consulta_norm = normalizar(consulta)
+    if embeddings is None or modelo is None:
+        return []
     
-    stopwords = {'de', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas',
-                 'para', 'por', 'con', 'sin', 'sobre', 'entre', 'hasta', 'desde',
-                 'del', 'al', 'lo', 'le', 'les', 'se', 'me', 'te', 'nos', 'os',
-                 'y', 'o', 'u', 'ni', 'que', 'como', 'cuando', 'donde', 'cual'}
+    try:
+        # Generar embedding de la consulta
+        consulta_embedding = modelo.encode(consulta, convert_to_tensor=True, show_progress_bar=False)
+        
+        # Calcular similitud de coseno con todos los embeddings
+        similitudes = util.cos_sim(consulta_embedding, embeddings)[0]
+        
+        # Obtener los top 200 resultados
+        top_k = min(200, len(similitudes))
+        top_scores, top_indices = torch.topk(similitudes, top_k)
+        
+        resultados = []
+        for idx, score in zip(top_indices.cpu().numpy().tolist(), top_scores.cpu().numpy().tolist()):
+            if score > 0.3:  # Umbral mínimo de similitud
+                fila = df.iloc[idx]
+                resultados.append({
+                    'fila': fila,
+                    'score': float(score) * 100,  # Escalar a porcentaje
+                    'descripcion': fila.get('Descripción', 'Sin descripción'),
+                    'semantico': True
+                })
+        
+        return resultados
+    except Exception as e:
+        st.error(f"Error en búsqueda semántica: {e}")
+        return []
+
+# =====================================================
+# BUSCADOR HÍBRIDO (TEXTO + SEMÁNTICO)
+# =====================================================
+
+def buscar_hibrido(df, consulta, embeddings, modelo):
+    """
+    Combina búsqueda por texto y búsqueda semántica
+    """
+    # 1. Búsqueda por texto (buscar_en_excel)
+    resultados_texto = []
+    try:
+        df_texto = buscar_en_excel(df, consulta)
+        if not df_texto.empty:
+            for _, fila in df_texto.iterrows():
+                resultados_texto.append({
+                    'fila': fila,
+                    'score': 100.0,  # Score alto para resultados de texto exacto
+                    'descripcion': fila.get('Descripción', 'Sin descripción'),
+                    'semantico': False
+                })
+    except Exception as e:
+        pass
     
-    palabras_clave = [p for p in consulta_norm.split() if len(p) > 2 and p not in stopwords]
-    terminos = [consulta_norm] + sinonimos + palabras_clave
+    # 2. Búsqueda semántica
+    resultados_semanticos = buscar_semantico(df, consulta, embeddings, modelo)
     
-    emb_consulta = modelo.encode(consulta_norm, convert_to_tensor=True, show_progress_bar=False)
+    # 3. Combinar y deduplicar por código
+    resultados_por_codigo = {}
     
-    if not isinstance(embeddings, torch.Tensor):
-        embeddings = torch.tensor(embeddings)
+    # Agregar resultados de texto
+    for r in resultados_texto:
+        codigo = r['fila'].get('Código', '')
+        if codigo and codigo not in resultados_por_codigo:
+            resultados_por_codigo[codigo] = r
     
-    similitudes = util.cos_sim(emb_consulta, embeddings)[0]
+    # Agregar resultados semánticos (con menor prioridad)
+    for r in resultados_semanticos:
+        codigo = r['fila'].get('Código', '')
+        if codigo and codigo not in resultados_por_codigo:
+            # Dar un pequeño bonus a los resultados semánticos si tienen buena similitud
+            if r['score'] > 70:
+                r['score'] = r['score'] * 0.9
+            resultados_por_codigo[codigo] = r
     
-    top_k = min(500, len(similitudes))
-    top_scores, top_indices = torch.topk(similitudes, top_k)
+    # Convertir a lista y ordenar por score
+    resultados = list(resultados_por_codigo.values())
+    resultados.sort(key=lambda x: x['score'], reverse=True)
     
-    top_indices_list = top_indices.cpu().numpy().tolist()
-    top_scores_list = top_scores.cpu().numpy().tolist()
-    
-    resultados = []
-    
-    for idx, sem_score in zip(top_indices_list, top_scores_list):
-        fila = df.iloc[idx]
-        desc = normalizar(fila["Descripción"])
-        definicion = normalizar(fila.get("Definición", ""))
-        contexto = normalizar("")
-        
-        fuzzy_desc = 0
-        fuzzy_def = 0
-        fuzzy_ctx = 0
-        
-        for t in terminos:
-            fs_desc = fuzz.token_sort_ratio(t, desc)
-            fs_desc_partial = fuzz.partial_ratio(t, desc)
-            fs_desc = max(fs_desc, fs_desc_partial)
-            fs_def = fuzz.token_sort_ratio(t, definicion) if definicion else 0
-            fs_ctx = fuzz.token_sort_ratio(t, contexto)
-            
-            if fs_desc > fuzzy_desc:
-                fuzzy_desc = fs_desc
-            if fs_def > fuzzy_def:
-                fuzzy_def = fs_def
-            if fs_ctx > fuzzy_ctx:
-                fuzzy_ctx = fs_ctx
-        
-        fuzzy = (fuzzy_desc * 0.7) + (fuzzy_def * 0.3)
-        
-        palabras_en_desc = sum(1 for p in palabras_clave if p in desc)
-        palabras_en_def = sum(1 for p in palabras_clave if p in definicion)
-        
-        if palabras_clave:
-            porcentaje_palabras = (palabras_en_desc + palabras_en_def * 0.5) / len(palabras_clave)
-        else:
-            porcentaje_palabras = 0
-        
-        bono_palabras_clave = min(porcentaje_palabras * 30, 30)
-        
-        semantico = float(sem_score) * 100
-        
-        if porcentaje_palabras > 0.3:
-            score = (semantico * 0.1) + (fuzzy * 0.9) + bono_palabras_clave
-        else:
-            score = (semantico * 0.2) + (fuzzy * 0.8) + bono_palabras_clave
-        
-        exacto = False
-        if palabras_clave and all(p in desc for p in palabras_clave):
-            exacto = True
-        if fuzzy_desc >= 90:
-            exacto = True
-        if consulta_norm in desc:
-            exacto = True
-            score = max(score, 85)
-        
-        if palabras_clave and palabras_en_desc == 0 and palabras_en_def == 0:
-            score = score * 0.3
-        
-        if score >= 40 or exacto:
-            resultados.append((score, exacto, fila))
-    
-    resultados.sort(key=lambda x: (-x[1], -x[0]))
-    return resultados[:200]
+    return resultados
 
 # =====================================================
 # FUNCIÓN PARA OBTENER JERARQUÍA DESDE SQLITE
@@ -552,7 +580,7 @@ def obtener_jerarquia(codigo):
 # MOSTRAR RESULTADO
 # =====================================================
 
-def mostrar_resultado(score, fila, rank):
+def mostrar_resultado(score, fila, rank, es_semantico=False):
     db = DatabaseManager()
     
     # Obtener datos de la fila del Excel
@@ -564,7 +592,10 @@ def mostrar_resultado(score, fila, rank):
     # Buscar Segmento, Familia, Clase desde la base de datos SQLite usando el código
     segmento, familia, clase = obtener_jerarquia(codigo)
     
-    titulo = f"{score:.0f}% | {codigo} | {descripcion[:50]}..."
+    # Etiqueta de tipo de búsqueda
+    etiqueta = "🔍 Semántica" if es_semantico else "📌 Exacta"
+    
+    titulo = f"{etiqueta} | {score:.0f}% | {codigo} | {descripcion[:50]}..."
     
     with st.expander(titulo):
         col1, col2 = st.columns([2, 1])
@@ -579,6 +610,8 @@ def mostrar_resultado(score, fila, rank):
             st.write("**📂 Segmento:**", segmento if segmento else "No disponible")
             st.write("**📁 Familia:**", familia if familia else "No disponible")
             st.write("**📄 Clase:**", clase if clase else "No disponible")
+            if es_semantico:
+                st.caption("🔍 Este resultado fue encontrado por similitud semántica")
         
         with col2:
             st.write("**💰 Clasificación DIGEPRES**")
@@ -703,6 +736,12 @@ def main():
                 st.session_state.df_filtrado = pd.DataFrame()
         
         st.divider()
+        
+        # Opción para usar búsqueda semántica
+        usar_semantica = st.checkbox("🧠 Usar búsqueda semántica", value=True, 
+                                       help="Permite encontrar ítems relacionados por significado, no solo por palabras exactas")
+        
+        st.divider()
         if st.button("🧹 Limpiar Búsqueda", use_container_width=True):
             st.session_state.consulta = ""
             st.session_state.resultados = []
@@ -735,7 +774,7 @@ def main():
     consulta = st.text_input(
         "🔎 Describa el bien o servicio, ingrese un código UNSPSC o una cuenta DIGEPRES:",
         value=st.session_state.consulta,
-        placeholder="Ej: perro, computadora, 10101502, 25101503, 2.3.9.4.01...",
+        placeholder="Ej: Construcción de verja perimetral, perro, computadora, 10101502, 2.3.9.4.01...",
         key="consulta_input"
     )
 
@@ -764,30 +803,53 @@ def main():
                         if not resultados_codigo.empty:
                             resultados = []
                             for _, fila in resultados_codigo.iterrows():
-                                resultados.append((100.0, True, fila))
+                                resultados.append((100.0, True, fila, False))
                             st.session_state.resultados = resultados
                             st.session_state.tipo_busqueda = "código"
                         else:
                             st.session_state.resultados = []
                     else:
-                        # Búsqueda en Excel
-                        resultados_df = buscar_en_excel(df, consulta)
-                        
-                        if not resultados_df.empty:
-                            resultados = []
-                            for _, fila in resultados_df.iterrows():
-                                resultados.append((100.0, True, fila))
-                            st.session_state.resultados = resultados
-                            st.session_state.tipo_busqueda = "excel"
+                        # Verificar si el usuario quiere usar búsqueda semántica
+                        if usar_semantica:
+                            # Cargar embeddings y modelo
+                            embeddings = cargar_embeddings()
+                            modelo = cargar_modelo()
+                            
+                            if embeddings is not None and modelo is not None:
+                                # Búsqueda híbrida
+                                resultados_hibridos = buscar_hibrido(df, consulta, embeddings, modelo)
+                                if resultados_hibridos:
+                                    resultados = []
+                                    for r in resultados_hibridos:
+                                        fila = r['fila']
+                                        score = r['score']
+                                        es_semantico = r.get('semantico', False)
+                                        resultados.append((score, True, fila, es_semantico))
+                                    st.session_state.resultados = resultados
+                                    st.session_state.tipo_busqueda = "hibrida"
+                                else:
+                                    st.session_state.resultados = []
+                            else:
+                                # Fallback a búsqueda en Excel
+                                resultados_df = buscar_en_excel(df, consulta)
+                                if not resultados_df.empty:
+                                    resultados = []
+                                    for _, fila in resultados_df.iterrows():
+                                        resultados.append((100.0, True, fila, False))
+                                    st.session_state.resultados = resultados
+                                    st.session_state.tipo_busqueda = "excel"
+                                else:
+                                    st.session_state.resultados = []
                         else:
-                            # Fallback a búsqueda híbrida
-                            try:
-                                embeddings = cargar_embeddings()
-                                resultados = buscar_hibrido(df, embeddings, consulta, [])
+                            # Solo búsqueda en Excel
+                            resultados_df = buscar_en_excel(df, consulta)
+                            if not resultados_df.empty:
+                                resultados = []
+                                for _, fila in resultados_df.iterrows():
+                                    resultados.append((100.0, True, fila, False))
                                 st.session_state.resultados = resultados
-                                st.session_state.tipo_busqueda = "hibrida"
-                            except Exception as e:
-                                st.error(f"❌ Error en búsqueda híbrida: {e}")
+                                st.session_state.tipo_busqueda = "excel"
+                            else:
                                 st.session_state.resultados = []
                 else:
                     st.warning("No hay datos para buscar")
@@ -825,9 +887,9 @@ def main():
         col_export, col_empty = st.columns([1, 5])
         with col_export:
             export_data = []
-            for score, exacto, fila in resultados:
+            for score, exacto, fila, es_semantico in resultados:
                 export_data.append({
-                    "Tipo": "Exacta" if exacto else "Relacionada",
+                    "Tipo": "Semántico" if es_semantico else "Exacta",
                     "Score": round(score, 2),
                     "Código": fila.get("Código", ""),
                     "Descripción": fila.get("Descripción", ""),
@@ -880,8 +942,8 @@ def main():
                         st.session_state.pagina_actual += 1
         
         rank = inicio + 1
-        for score, exacto, fila in resultados_pagina:
-            mostrar_resultado(score, fila, rank)
+        for score, exacto, fila, es_semantico in resultados_pagina:
+            mostrar_resultado(score, fila, rank, es_semantico)
             rank += 1
         
         if total_paginas > 1:
