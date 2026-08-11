@@ -37,14 +37,12 @@ def inject_custom_css():
     """Inyecta CSS personalizado"""
     st.markdown("""
     <style>
-        /* Reducir espacio superior de la página */
         .main > div {
             padding-top: 0 !important;
         }
         .block-container {
             padding-top: 0.5rem !important;
         }
-        
         .stTextInput > label {
             display: none !important;
         }
@@ -70,8 +68,6 @@ def inject_custom_css():
         .stTextInput > div > div > input::placeholder {
             color: #9ca3af !important;
         }
-        
-        /* Selectores en sidebar */
         .stSelectbox > div > div {
             background-color: #1e293b !important;
             border-color: #334155 !important;
@@ -87,7 +83,6 @@ def inject_custom_css():
         .stSelectbox label {
             color: #94a3b8 !important;
         }
-        
         .main-header {
             text-align: center;
             padding: 8px 0 4px 0;
@@ -117,8 +112,6 @@ def inject_custom_css():
             font-style: italic;
             margin: 2px 0 0 0;
         }
-        
-        /* Sidebar */
         [data-testid="stSidebar"] {
             background-color: #0f172a !important;
         }
@@ -147,7 +140,42 @@ def inject_custom_css():
             color: white !important;
             border: none !important;
         }
-        
+        .sidebar-logo-container {
+            text-align: center;
+            padding: 5px 0 5px 0;
+            border-bottom: 2px solid #334155;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        .sidebar-logo-wrapper {
+            background: white;
+            border-radius: 12px;
+            padding: 6px;
+            margin: 0 auto;
+            max-width: 130px;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.25);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .sidebar-logo-wrapper:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+        }
+        .sidebar-logo-wrapper img {
+            display: block;
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+        }
+        .sidebar-logo-title {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 4px;
+            transition: color 0.2s ease;
+            cursor: pointer;
+        }
+        .sidebar-logo-title:hover {
+            color: #e2e8f0;
+        }
         .result-card {
             border-radius: 12px;
             border: 1px solid #e8e8e8;
@@ -186,7 +214,6 @@ def inject_custom_css():
         .result-card .digepres .label {
             font-weight: 600;
         }
-        
         .footer {
             text-align: center;
             padding: 20px 16px;
@@ -203,7 +230,6 @@ def inject_custom_css():
         .stExpander > div:first-child {
             border-radius: 12px !important;
         }
-        
         .results-header-container {
             display: flex;
             align-items: center;
@@ -268,158 +294,110 @@ def es_busqueda_por_cuenta(consulta):
     return bool(re.match(r'^\d+\.\d+\.\d+\.\d+\.\d+$', consulta_limpia))
 
 # =====================================================
-# CARGAR DATOS
+# CARGAR DATOS DESDE EXCEL
 # =====================================================
+
+@st.cache_data
+def cargar_catalogo_excel():
+    """Carga el catálogo desde el archivo mapeo_completo.xlsx"""
+    try:
+        excel_path = Path("data/mapeo_completo.xlsx")
+        if excel_path.exists():
+            df = pd.read_excel(excel_path)
+            # Limpiar nombres de columnas
+            df.columns = df.columns.str.strip()
+            st.session_state.df_catalogo_excel = df
+            return df
+        else:
+            st.warning("⚠️ No se encontró el archivo data/mapeo_completo.xlsx")
+            return pd.DataFrame()
+    except Exception as e:
+        st.error(f"❌ Error cargando Excel: {e}")
+        return pd.DataFrame()
 
 @st.cache_data
 def cargar_catalogo():
-    conn = sqlite3.connect("db/DGCP_UNSPSC.db")
-    df = pd.read_sql("SELECT * FROM catalogo", conn)
-    conn.close()
-    return df
-
-@st.cache_data
-def cargar_catalogo_con_digepres():
+    """Carga el catálogo desde la base de datos SQLite (fallback)"""
     try:
-        csv_path = Path("data/catalogo_final.csv")
-        if csv_path.exists():
-            df = pd.read_csv(csv_path)
-            df['Código'] = df['Código'].astype(str).str.strip()
-            df['cuenta_digepres'] = df['cuenta_digepres'].astype(str).str.strip()
-            return df
-        else:
-            return pd.DataFrame()
-    except:
-            return pd.DataFrame()
-
-@st.cache_data
-def cargar_embeddings():
-    data = torch.load("db/embeddings.pt", map_location="cpu")
-    if isinstance(data, dict):
-        if 'embeddings' in data:
-            return data['embeddings']
-        else:
-            for key, value in data.items():
-                if isinstance(value, torch.Tensor):
-                    return value
-    if isinstance(data, torch.Tensor):
-        return data
-    raise ValueError(f"Formato de embeddings no soportado: {type(data)}")
-
-@st.cache_resource
-def cargar_modelo():
-    from sentence_transformers import SentenceTransformer
-    return SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-
-@st.cache_data
-def cargar_sinonimos():
-    """Carga los sinónimos de la base de datos con debug"""
-    try:
-        import os
-        import time
-        
-        # =====================================================
-        # DEBUG - Verificar base de datos
-        # =====================================================
-        with st.expander("🔍 DEBUG - Cargando sinónimos", expanded=True):
-            db_path = "db/DGCP_UNSPSC.db"
-            st.write(f"📁 Ruta absoluta: {os.path.abspath(db_path)}")
-            st.write(f"📁 ¿Existe el archivo? {os.path.exists(db_path)}")
-            
-            if os.path.exists(db_path):
-                st.write(f"📁 Tamaño: {os.path.getsize(db_path):,} bytes")
-                st.write(f"📁 Última modificación: {time.ctime(os.path.getmtime(db_path))}")
-            
-            # Conectar y verificar
-            conn = sqlite3.connect(db_path)
-            cur = conn.cursor()
-            
-            # Verificar tablas
-            cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            tablas = [t[0] for t in cur.fetchall()]
-            st.write(f"📋 Tablas en DB: {tablas}")
-            
-            # Verificar tabla sinonimos
-            if 'sinonimos' in tablas:
-                cur.execute("SELECT COUNT(*) FROM sinonimos")
-                total = cur.fetchone()[0]
-                st.write(f"📊 Total de sinónimos en DB: {total:,}")
-                
-                # Buscar "lápiz"
-                cur.execute("SELECT sinonimo FROM sinonimos WHERE termino LIKE ? LIMIT 10", ('%lápiz%',))
-                lapiz = cur.fetchall()
-                st.write(f"📌 Sinónimos de 'lápiz' (primeros 10): {len(lapiz)}")
-                for s in lapiz:
-                    st.write(f"  - {s[0]}")
-                
-                # Buscar "Servicios de cáterin"
-                cur.execute("SELECT sinonimo FROM sinonimos WHERE termino LIKE ? LIMIT 10", ('%cáterin%',))
-                caterin = cur.fetchall()
-                st.write(f"📌 Sinónimos de 'Servicios de cáterin' (primeros 10): {len(caterin)}")
-                for s in caterin:
-                    st.write(f"  - {s[0]}")
-            else:
-                st.error("❌ La tabla 'sinonimos' NO existe en la base de datos")
-            
-            conn.close()
-            st.write("✅ Debug completado")
-            st.divider()
-        
-        # =====================================================
-        # Código original de carga de sinónimos
-        # =====================================================
         conn = sqlite3.connect("db/DGCP_UNSPSC.db")
-        df = pd.read_sql("SELECT termino, sinonimo FROM sinonimos", conn)
+        df = pd.read_sql("SELECT * FROM catalogo", conn)
         conn.close()
-        
-        # DEBUG: Verificar el dataframe
-        with st.expander("🔍 DEBUG - DataFrame de sinónimos"):
-            st.write(f"📊 Filas en el dataframe: {len(df)}")
-            st.write(f"📋 Columnas: {df.columns.tolist()}")
-            st.write("📋 Primeros 5 registros:")
-            st.dataframe(df.head(5))
-        
-        dic = {}
-        for _, row in df.iterrows():
-            t = normalizar(row["termino"])
-            s = normalizar(row["sinonimo"])
-            if t not in dic:
-                dic[t] = []
-            if s not in dic[t]:
-                dic[t].append(s)
-        
-        # DEBUG: Verificar el diccionario
-        with st.expander("🔍 DEBUG - Diccionario de sinónimos"):
-            st.write(f"📊 Total de términos con sinónimos: {len(dic)}")
-            # Mostrar algunos ejemplos
-            ejemplos = list(dic.items())[:10]
-            st.write("📋 Ejemplos de términos con sinónimos:")
-            for term, sins in ejemplos:
-                st.write(f"  • {term}: {len(sins)} sinónimos (primeros 3: {sins[:3]})")
-            
-            # Verificar específicamente "lapiz"
-            if "lapiz" in dic:
-                st.write(f"✅ 'lapiz' encontrado en el diccionario con {len(dic['lapiz'])} sinónimos:")
-                for sin in dic['lapiz'][:10]:
-                    st.write(f"    - {sin}")
-            else:
-                st.write("❌ 'lapiz' NO está en el diccionario")
-                # Buscar claves similares
-                claves_similares = [k for k in dic.keys() if "lap" in k]
-                if claves_similares:
-                    st.write(f"📌 Claves similares encontradas: {claves_similares[:10]}")
-        
-        return dic
-        
+        return df
     except Exception as e:
-        st.error(f"❌ Error cargando sinónimos: {e}")
-        import traceback
-        with st.expander("🔍 Detalles del error"):
-            st.code(traceback.format_exc())
-        return {}
+        st.error(f"❌ Error cargando base de datos: {e}")
+        return pd.DataFrame()
 
 # =====================================================
-# BUSCADOR HÍBRIDO (CORREGIDO - BUSCA EN SINÓNIMOS DEL CATÁLOGO)
+# BUSCADOR EN EXCEL
+# =====================================================
+
+def buscar_en_excel(df, consulta):
+    """Busca la consulta en todas las columnas del DataFrame"""
+    if df.empty:
+        return pd.DataFrame()
+    
+    consulta_norm = normalizar(consulta)
+    palabras = consulta_norm.split()
+    
+    resultados = []
+    
+    # Columnas a buscar
+    columnas_busqueda = ['Descripción', 'Sinónimos', 'Definición', 'Denominación']
+    columnas_disponibles = [col for col in columnas_busqueda if col in df.columns]
+    
+    # También buscar en todas las columnas de texto
+    columnas_texto = [col for col in df.columns if df[col].dtype == 'object']
+    
+    for idx, row in df.iterrows():
+        score = 0
+        coincidencias = []
+        
+        # Buscar en las columnas específicas
+        for col in columnas_disponibles:
+            valor = str(row[col]) if pd.notna(row[col]) else ""
+            valor_norm = normalizar(valor)
+            
+            # Coincidencia exacta de la consulta completa
+            if consulta_norm in valor_norm:
+                score += 50
+                coincidencias.append(f"{col}: '{consulta}' encontrado")
+            
+            # Coincidencia de palabras individuales
+            for palabra in palabras:
+                if len(palabra) > 2 and palabra in valor_norm:
+                    score += 10
+                    coincidencias.append(f"{col}: '{palabra}' encontrado")
+        
+        # Buscar en todas las columnas de texto (incluyendo las específicas)
+        for col in columnas_texto:
+            if col in columnas_disponibles:
+                continue  # Ya se procesaron
+            valor = str(row[col]) if pd.notna(row[col]) else ""
+            valor_norm = normalizar(valor)
+            if consulta_norm in valor_norm:
+                score += 30
+                coincidencias.append(f"{col}: '{consulta}' encontrado")
+        
+        # Si tiene puntaje, agregar a resultados
+        if score > 0:
+            resultados.append({
+                'fila': row,
+                'score': score,
+                'coincidencias': coincidencias,
+                'descripcion': row.get('Descripción', 'Sin descripción')
+            })
+    
+    # Ordenar por puntaje
+    resultados.sort(key=lambda x: x['score'], reverse=True)
+    
+    # Devolver DataFrame con los resultados
+    if resultados:
+        return pd.DataFrame([r['fila'] for r in resultados])
+    else:
+        return pd.DataFrame()
+
+# =====================================================
+# BUSCADOR HÍBRIDO (con embeddings) - FALLBACK
 # =====================================================
 
 def buscar_hibrido(df, embeddings, consulta, sinonimos):
@@ -427,19 +405,7 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     from sentence_transformers import util
     import torch
     
-    # =====================================================
-    # DEBUG - Verificar sinónimos recibidos
-    # =====================================================
-    with st.expander("🔍 DEBUG - Sinónimos recibidos en búsqueda"):
-        st.write(f"📌 Consulta original: {consulta}")
-        st.write(f"📌 Sinónimos recibidos ({len(sinonimos)}):")
-        for i, sin in enumerate(sinonimos[:10]):
-            st.write(f"  {i+1}. {sin}")
-        if len(sinonimos) > 10:
-            st.write(f"  ... y {len(sinonimos)-10} más")
-    
     modelo = cargar_modelo()
-    
     consulta_norm = normalizar(consulta)
     
     stopwords = {'de', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas',
@@ -449,16 +415,6 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     
     palabras_clave = [p for p in consulta_norm.split() if len(p) > 2 and p not in stopwords]
     terminos = [consulta_norm] + sinonimos + palabras_clave
-    
-    # =====================================================
-    # DEBUG - Ver términos de búsqueda
-    # =====================================================
-    with st.expander("🔍 DEBUG - Términos de búsqueda"):
-        st.write(f"📌 Términos utilizados ({len(terminos)}):")
-        for i, t in enumerate(terminos[:15]):
-            st.write(f"  {i+1}. {t}")
-        if len(terminos) > 15:
-            st.write(f"  ... y {len(terminos)-15} más")
     
     emb_consulta = modelo.encode(consulta_norm, convert_to_tensor=True, show_progress_bar=False)
     
@@ -475,34 +431,15 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     
     resultados = []
     
-    # Verificar si el dataframe tiene columna de sinónimos
-    tiene_col_sinonimos = 'Sinónimos' in df.columns
-    
-    # =====================================================
-    # DEBUG - Mostrar primeros ítems considerados
-    # =====================================================
-    with st.expander("🔍 DEBUG - Ítems considerados (top 5)"):
-        for i, idx in enumerate(top_indices_list[:5]):
-            fila = df.iloc[idx]
-            st.write(f"📌 Ítem {i+1}: {fila['Descripción']} (score semántico: {top_scores_list[i]:.3f})")
-            if tiene_col_sinonimos and pd.notna(fila['Sinónimos']):
-                st.write(f"   Sinónimos: {fila['Sinónimos'][:100]}...")
-    
     for idx, sem_score in zip(top_indices_list, top_scores_list):
         fila = df.iloc[idx]
         desc = normalizar(fila["Descripción"])
         definicion = normalizar(fila.get("Definición", ""))
         contexto = normalizar(f"{fila['Segmento']} {fila['Familia']} {fila['Clase']}")
         
-        # Si existe columna de sinónimos, agregarla a la búsqueda
-        sinonimos_item = ""
-        if tiene_col_sinonimos and pd.notna(fila['Sinónimos']):
-            sinonimos_item = normalizar(str(fila['Sinónimos']))
-        
         fuzzy_desc = 0
         fuzzy_def = 0
         fuzzy_ctx = 0
-        fuzzy_sin = 0
         
         for t in terminos:
             fs_desc = fuzz.token_sort_ratio(t, desc)
@@ -510,7 +447,6 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
             fs_desc = max(fs_desc, fs_desc_partial)
             fs_def = fuzz.token_sort_ratio(t, definicion) if definicion else 0
             fs_ctx = fuzz.token_sort_ratio(t, contexto)
-            fs_sin = fuzz.token_sort_ratio(t, sinonimos_item) if sinonimos_item else 0
             
             if fs_desc > fuzzy_desc:
                 fuzzy_desc = fs_desc
@@ -518,18 +454,14 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
                 fuzzy_def = fs_def
             if fs_ctx > fuzzy_ctx:
                 fuzzy_ctx = fs_ctx
-            if fs_sin > fuzzy_sin:
-                fuzzy_sin = fs_sin
         
-        # Ajustar pesos: dar más peso a la descripción y sinónimos
-        fuzzy = (fuzzy_desc * 0.5) + (fuzzy_sin * 0.3) + (fuzzy_def * 0.1) + (fuzzy_ctx * 0.1)
+        fuzzy = (fuzzy_desc * 0.6) + (fuzzy_def * 0.2) + (fuzzy_ctx * 0.2)
         
         palabras_en_desc = sum(1 for p in palabras_clave if p in desc)
         palabras_en_def = sum(1 for p in palabras_clave if p in definicion)
-        palabras_en_sin = sum(1 for p in palabras_clave if p in sinonimos_item) if sinonimos_item else 0
         
         if palabras_clave:
-            porcentaje_palabras = (palabras_en_desc + palabras_en_def * 0.3 + palabras_en_sin * 0.4) / len(palabras_clave)
+            porcentaje_palabras = (palabras_en_desc + palabras_en_def * 0.5) / len(palabras_clave)
         else:
             porcentaje_palabras = 0
         
@@ -551,47 +483,41 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
             exacto = True
             score = max(score, 85)
         
-        if palabras_clave and palabras_en_desc == 0 and palabras_en_def == 0 and palabras_en_sin == 0:
+        if palabras_clave and palabras_en_desc == 0 and palabras_en_def == 0:
             score = score * 0.3
         
         if score >= 40 or exacto:
             resultados.append((score, exacto, fila))
     
-    # =====================================================
-    # DEBUG - Resultados encontrados
-    # =====================================================
-    with st.expander("🔍 DEBUG - Resultados de búsqueda"):
-        st.write(f"📌 Resultados encontrados: {len(resultados)}")
-        for i, (score, exacto, fila) in enumerate(resultados[:10]):
-            st.write(f"  {i+1}. {fila['Descripción']} (score: {score:.0f}%, exacto: {exacto})")
-    
     resultados.sort(key=lambda x: (-x[1], -x[0]))
     return resultados[:200]
 
 # =====================================================
-# MOSTRAR RESULTADO (CON ST.EXPANDER)
+# MOSTRAR RESULTADO
 # =====================================================
 
 def mostrar_resultado(score, fila, rank):
     db = DatabaseManager()
     cuenta, descripcion, fuente, confianza = db.obtener_digepres(
-        fila["Código Familia"],
+        fila["Código Familia"] if "Código Familia" in fila else "",
         descripcion_item=fila["Descripción"]
     )
     
-    titulo = f"{score:.0f}% | {fila['Código UNSPSC']} | {fila['Descripción']}"
+    titulo = f"{score:.0f}% | {fila.get('Código UNSPSC', '')} | {fila['Descripción']}"
     
     with st.expander(titulo):
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.write("**📋 Código:**", fila["Código UNSPSC"])
+            st.write("**📋 Código:**", fila.get("Código UNSPSC", "No disponible"))
             st.write("**📝 Descripción:**", fila["Descripción"])
             if fila.get("Definición") and str(fila["Definición"]) != "nan":
                 st.write("**📖 Definición:**", fila["Definición"])
-            st.write("**📂 Segmento:**", fila["Segmento"])
-            st.write("**📁 Familia:**", fila["Familia"])
-            st.write("**📄 Clase:**", fila["Clase"])
+            if fila.get("Sinónimos") and str(fila["Sinónimos"]) != "nan":
+                st.write("**🔗 Sinónimos:**", fila["Sinónimos"])
+            st.write("**📂 Segmento:**", fila.get("Segmento", "No disponible"))
+            st.write("**📁 Familia:**", fila.get("Familia", "No disponible"))
+            st.write("**📄 Clase:**", fila.get("Clase", "No disponible"))
         
         with col2:
             st.write("**💰 Clasificación DIGEPRES**")
@@ -601,8 +527,6 @@ def mostrar_resultado(score, fila, rank):
                 st.caption(f"🔍 Fuente: {fuente} | Confianza: {confianza:.0%}")
             else:
                 st.warning("Sin clasificación DIGEPRES asignada")
-        
-        st.caption(f"📅 Versión: {fila.get('Fecha Versión', 'No disponible')}")
 
 # =====================================================
 # FUNCIÓN PRINCIPAL
@@ -636,7 +560,7 @@ def main():
     inject_custom_css()
 
     # =====================================================
-    # DETECTAR CLICK EN EL LOGO (RESET) - Compatible con Streamlit 1.28.0
+    # DETECTAR CLICK EN EL LOGO (RESET)
     # =====================================================
     try:
         query_params = st.query_params
@@ -669,114 +593,66 @@ def main():
             pass
 
     # =====================================================
-    # SIDEBAR - LOGO + FILTROS
+    # SIDEBAR
     # =====================================================
     with st.sidebar:
-        # =====================================================
-        # LOGO CON FUNCIÓN DE INICIO (CLICKABLE)
-        # =====================================================
+        # Logo
         try:
-            # URL del logo (usando el commit específico)
             logo_url = "https://raw.githubusercontent.com/cybersolushop-star/UNSPSC_DGCP_Expert/6df141cc0e6021de921153b1d343128bc6e35290/data/logo.png"
-            
             st.markdown(f"""
-            <style>
-                .sidebar-logo-container {{
-                    text-align: center;
-                    padding: 5px 0 5px 0;
-                    border-bottom: 2px solid #334155;
-                    margin-bottom: 10px;
-                    cursor: pointer;
-                }}
-                .sidebar-logo-wrapper {{
-                    background: white;
-                    border-radius: 12px;
-                    padding: 6px;
-                    margin: 0 auto;
-                    max-width: 130px;
-                    box-shadow: 0 3px 5px rgba(0,0,0,0.25);
-                    transition: transform 0.2s ease, box-shadow 0.2s ease;
-                }}
-                .sidebar-logo-wrapper:hover {{
-                    transform: scale(1.05);
-                    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
-                }}
-                .sidebar-logo-wrapper img {{
-                    display: block;
-                    width: 100%;
-                    height: auto;
-                    border-radius: 6px;
-                }}
-                .sidebar-logo-title {{
-                    font-size: 0.75rem;
-                    color: #94a3b8;
-                    margin-top: 4px;
-                    transition: color 0.2s ease;
-                    cursor: pointer;
-                }}
-                .sidebar-logo-title:hover {{
-                    color: #e2e8f0;
-                }}
-            </style>
-            
             <div class="sidebar-logo-container" onclick="window.location.href = window.location.pathname + '?reset=true';">
                 <div class="sidebar-logo-wrapper">
                     <img src="{logo_url}" alt="Logo UNSPSC DGCP - Ir al inicio">
                 </div>
-                <div class="sidebar-logo-title">
-                    🏠 Buscador de Bienes y Servicios
-                </div>
+                <div class="sidebar-logo-title">🏠 Buscador de Bienes y Servicios</div>
             </div>
             """, unsafe_allow_html=True)
-            
-        except Exception as e:
-            # Fallback con emoji si el logo no se puede cargar
-            st.markdown("""
-            <div style="text-align:center;padding:10px 0;border-bottom:2px solid #334155;margin-bottom:15px;cursor:pointer;" onclick="window.location.href = window.location.pathname + '?reset=true';">
-                <div style="background:linear-gradient(135deg,#1a5276,#154360);border-radius:12px;padding:12px;margin:0 auto;max-width:130px;box-shadow:0 3px 5px rgba(0,0,0,0.25);">
-                    <div style="font-size:3rem;margin:0;">🔎</div>
-                    <div style="font-size:0.85rem;font-weight:700;color:white;margin:3px 0 2px 0;">UNSPSC DGCP</div>
-                </div>
-                <div style="font-size:0.75rem;color:#94a3b8;margin-top:4px;cursor:pointer;">🏠 Buscador de Bienes y Servicios</div>
-            </div>
-            """, unsafe_allow_html=True)
+        except:
+            st.markdown("### 🔎 UNSPSC DGCP")
         
         st.divider()
         st.header("📂 Filtros")
         
-        try:
-            df_catalogo = cargar_catalogo()
+        # Cargar catálogo desde Excel
+        df_catalogo = cargar_catalogo_excel()
+        
+        if not df_catalogo.empty:
+            st.session_state.df_catalogo_excel = df_catalogo
             
-            if df_catalogo is not None and not df_catalogo.empty:
+            # Filtros
+            if "Segmento" in df_catalogo.columns:
                 segmentos = sorted(df_catalogo["Segmento"].dropna().unique())
                 segmento = st.selectbox("Segmento", ["Todos"] + list(segmentos))
-                
                 if segmento != "Todos":
                     df_filtrado = df_catalogo[df_catalogo["Segmento"] == segmento]
                 else:
                     df_filtrado = df_catalogo
-                
+            else:
+                df_filtrado = df_catalogo
+            
+            if "Familia" in df_filtrado.columns:
                 familias = sorted(df_filtrado["Familia"].dropna().unique())
                 familia = st.selectbox("Familia", ["Todas"] + list(familias))
-                
                 if familia != "Todas":
                     df_filtrado = df_filtrado[df_filtrado["Familia"] == familia]
-                
+            
+            if "Clase" in df_filtrado.columns:
                 clases = sorted(df_filtrado["Clase"].dropna().unique())
                 clase = st.selectbox("Clase", ["Todas"] + list(clases))
-                
                 if clase != "Todas":
                     df_filtrado = df_filtrado[df_filtrado["Clase"] == clase]
-                
-                st.caption(f"📊 {len(df_filtrado)} ítems disponibles")
-                st.session_state.df_filtrado = df_filtrado
+            
+            st.caption(f"📊 {len(df_filtrado)} ítems disponibles")
+            st.session_state.df_filtrado = df_filtrado
+        else:
+            # Fallback a SQLite
+            df_catalogo = cargar_catalogo()
+            if not df_catalogo.empty:
+                st.session_state.df_filtrado = df_catalogo
+                st.caption(f"📊 {len(df_catalogo)} ítems disponibles (SQLite)")
             else:
-                st.warning("No se pudo cargar el catálogo")
+                st.warning("⚠️ No se pudo cargar el catálogo")
                 st.session_state.df_filtrado = pd.DataFrame()
-                
-        except Exception as e:
-            st.error(f"Error cargando filtros: {e}")
-            st.session_state.df_filtrado = pd.DataFrame()
         
         st.divider()
         if st.button("🧹 Limpiar Búsqueda", use_container_width=True):
@@ -794,11 +670,9 @@ def main():
         st.caption("🔎 UNSPSC DGCP Expert v2.0")
 
     # =====================================================
-    # ENCABEZADO - TÍTULO COMO BOTÓN DE INICIO
+    # ENCABEZADO
     # =====================================================
-    
     home_url = "https://cataloconsultadgcp.streamlit.app"
-    
     st.markdown(f"""
     <div class="main-header">
         <h1><a href="{home_url}" target="_self">🔎 BUSCADOR UNSPSC DGCP</a></h1>
@@ -810,7 +684,6 @@ def main():
     # =====================================================
     # BARRA DE BÚSQUEDA
     # =====================================================
-    
     consulta = st.text_input(
         "🔎 Describa el bien o servicio, ingrese un código UNSPSC o una cuenta DIGEPRES:",
         value=st.session_state.consulta,
@@ -818,7 +691,9 @@ def main():
         key="consulta_input"
     )
 
-    # Si la consulta cambió, ejecutar búsqueda
+    # =====================================================
+    # EJECUTAR BÚSQUEDA
+    # =====================================================
     if consulta and consulta != st.session_state.ultima_busqueda:
         st.session_state.ultima_busqueda = consulta
         st.session_state.consulta = consulta
@@ -830,63 +705,34 @@ def main():
             try:
                 df = st.session_state.df_filtrado
                 if df.empty:
-                    df = cargar_catalogo()
+                    df = cargar_catalogo_excel()
+                    if df.empty:
+                        df = cargar_catalogo()
                 
                 if df is not None and not df.empty:
-                    if es_busqueda_por_cuenta(consulta):
-                        df_digepres = cargar_catalogo_con_digepres()
-                        if not df_digepres.empty:
-                            df_cuenta = df_digepres[df_digepres['cuenta_digepres'].astype(str).str.strip() == consulta.strip()]
-                            if not df_cuenta.empty:
-                                resultados = []
-                                for _, fila in df_cuenta.iterrows():
-                                    codigo = fila['Código']
-                                    fila_catalogo = df[df["Código UNSPSC"].astype(str).str.strip() == str(codigo).strip()]
-                                    if not fila_catalogo.empty:
-                                        resultados.append((100.0, True, fila_catalogo.iloc[0]))
-                                    else:
-                                        resultados.append((100.0, True, fila))
-                                st.session_state.resultados = resultados
-                                st.session_state.sinonimos = []
-                                st.session_state.tipo_busqueda = "cuenta"
-                            else:
-                                st.session_state.resultados = []
-                                st.session_state.sinonimos = []
-                                st.session_state.tipo_busqueda = "cuenta"
-                        else:
-                            st.session_state.resultados = []
-                            st.session_state.sinonimos = []
-                            st.session_state.tipo_busqueda = "cuenta"
-                    elif es_busqueda_por_codigo(consulta):
-                        resultados_codigo = buscar_por_codigo(df, consulta)
-                        if not resultados_codigo.empty:
-                            resultados = []
-                            for _, fila in resultados_codigo.iterrows():
-                                resultados.append((100.0, True, fila))
-                            st.session_state.resultados = resultados
-                            st.session_state.sinonimos = []
-                            st.session_state.tipo_busqueda = "código"
-                        else:
-                            st.session_state.resultados = []
-                            st.session_state.sinonimos = []
-                            st.session_state.tipo_busqueda = "código"
-                    else:
-                        embeddings = cargar_embeddings()
-                        sinonimos_dict = cargar_sinonimos()
-                        # CORREGIDO: Normalizar la consulta antes de buscar sinónimos
-                        sinonimos = sinonimos_dict.get(normalizar(consulta), [])
-                        
-                        # DEBUG
-                        with st.expander("🔍 DEBUG - Sinónimos obtenidos"):
-                            st.write(f"📌 Consulta original: {consulta}")
-                            st.write(f"📌 Consulta normalizada: {normalizar(consulta)}")
-                            st.write(f"📌 Sinónimos encontrados: {len(sinonimos)}")
-                            st.write(f"📌 Primeros 10 sinónimos: {sinonimos[:10]}")
-                        
-                        resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
+                    # Intentar búsqueda en Excel primero
+                    resultados_df = buscar_en_excel(df, consulta)
+                    
+                    if not resultados_df.empty:
+                        # Convertir a lista de tuplas (score, exacto, fila)
+                        resultados = []
+                        for _, fila in resultados_df.iterrows():
+                            resultados.append((100.0, True, fila))
                         st.session_state.resultados = resultados
-                        st.session_state.sinonimos = sinonimos
-                        st.session_state.tipo_busqueda = "texto"
+                        st.session_state.tipo_busqueda = "excel"
+                    else:
+                        # Fallback a búsqueda híbrida
+                        try:
+                            embeddings = cargar_embeddings()
+                            sinonimos_dict = cargar_sinonimos()
+                            sinonimos = sinonimos_dict.get(normalizar(consulta), [])
+                            resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
+                            st.session_state.resultados = resultados
+                            st.session_state.sinonimos = sinonimos
+                            st.session_state.tipo_busqueda = "hibrida"
+                        except Exception as e:
+                            st.error(f"❌ Error en búsqueda híbrida: {e}")
+                            st.session_state.resultados = []
                 else:
                     st.warning("No hay datos para buscar")
                     
@@ -898,7 +744,6 @@ def main():
         
         st.session_state.search_time_ms = (time.time() - search_start) * 1000
 
-    # Si no hay consulta, limpiar resultados
     elif not consulta:
         st.session_state.resultados = []
         st.session_state.sinonimos = []
@@ -907,11 +752,7 @@ def main():
     # =====================================================
     # MOSTRAR RESULTADOS
     # =====================================================
-    
     resultados = st.session_state.resultados
-    sinonimos = st.session_state.sinonimos
-    tipo_busqueda = st.session_state.get("tipo_busqueda", "texto")
-    search_time_ms = st.session_state.get("search_time_ms", 0)
 
     if resultados:
         st.markdown(f"""
@@ -924,6 +765,7 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
+        # Exportar
         col_export, col_empty = st.columns([1, 5])
         with col_export:
             export_data = []
@@ -931,11 +773,12 @@ def main():
                 export_data.append({
                     "Tipo": "Exacta" if exacto else "Relacionada",
                     "Score": round(score, 2),
-                    "Código UNSPSC": fila["Código UNSPSC"],
-                    "Descripción": fila["Descripción"],
-                    "Segmento": fila["Segmento"],
-                    "Familia": fila["Familia"],
-                    "Clase": fila["Clase"]
+                    "Código UNSPSC": fila.get("Código UNSPSC", ""),
+                    "Descripción": fila.get("Descripción", ""),
+                    "Segmento": fila.get("Segmento", ""),
+                    "Familia": fila.get("Familia", ""),
+                    "Clase": fila.get("Clase", ""),
+                    "Sinónimos": fila.get("Sinónimos", "")
                 })
             
             if export_data:
@@ -953,6 +796,7 @@ def main():
                     use_container_width=True
                 )
         
+        # Paginación
         items_por_pagina = 10
         total_items = len(resultados)
         total_paginas = (total_items + items_por_pagina - 1) // items_por_pagina
@@ -973,7 +817,7 @@ def main():
                     if st.session_state.pagina_actual > 1:
                         st.session_state.pagina_actual -= 1
             with col_info:
-                st.markdown(f"<p style='text-align:center;color:#6b7280;'>Página {st.session_state.pagina_actual} de {total_paginas} (mostrando {len(resultados_pagina)} de {total_items} ítems)</p>", unsafe_allow_html=True)
+                st.markdown(f"<p style='text-align:center;color:#6b7280;'>Página {st.session_state.pagina_actual} de {total_paginas}</p>", unsafe_allow_html=True)
             with col_next:
                 if st.button("Siguiente ▶", use_container_width=True, key="next_top"):
                     if st.session_state.pagina_actual < total_paginas:
