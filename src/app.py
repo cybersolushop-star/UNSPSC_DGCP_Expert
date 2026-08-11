@@ -811,11 +811,13 @@ def main():
                     else:
                         embeddings = cargar_embeddings()
                         sinonimos_dict = cargar_sinonimos()
-                        sinonimos = sinonimos_dict.get(consulta, [])
+                        # CORREGIDO: Normalizar la consulta antes de buscar sinónimos
+                        sinonimos = sinonimos_dict.get(normalizar(consulta), [])
                         
                         # DEBUG
                         with st.expander("🔍 DEBUG - Sinónimos obtenidos"):
-                            st.write(f"📌 Consulta: {consulta}")
+                            st.write(f"📌 Consulta original: {consulta}")
+                            st.write(f"📌 Consulta normalizada: {normalizar(consulta)}")
                             st.write(f"📌 Sinónimos encontrados: {len(sinonimos)}")
                             st.write(f"📌 Primeros 10 sinónimos: {sinonimos[:10]}")
                         
