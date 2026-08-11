@@ -399,7 +399,7 @@ def cargar_sinonimos():
         return {}
 
 # =====================================================
-# BUSCADOR HÍBRIDO
+# BUSCADOR HÍBRIDO (CORREGIDO - BUSCA EN SINÓNIMOS DEL CATÁLOGO)
 # =====================================================
 
 def buscar_hibrido(df, embeddings, consulta, sinonimos):
@@ -455,6 +455,9 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     
     resultados = []
     
+    # Verificar si el dataframe tiene columna de sinónimos
+    tiene_col_sinonimos = 'Sinónimos' in df.columns
+    
     # =====================================================
     # DEBUG - Mostrar primeros ítems considerados
     # =====================================================
@@ -462,6 +465,8 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
         for i, idx in enumerate(top_indices_list[:5]):
             fila = df.iloc[idx]
             st.write(f"📌 Ítem {i+1}: {fila['Descripción']} (score semántico: {top_scores_list[i]:.3f})")
+            if tiene_col_sinonimos and pd.notna(fila['Sinónimos']):
+                st.write(f"   Sinónimos: {fila['Sinónimos'][:100]}...")
     
     for idx, sem_score in zip(top_indices_list, top_scores_list):
         fila = df.iloc[idx]
@@ -469,9 +474,15 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
         definicion = normalizar(fila.get("Definición", ""))
         contexto = normalizar(f"{fila['Segmento']} {fila['Familia']} {fila['Clase']}")
         
+        # Si existe columna de sinónimos, agregarla a la búsqueda
+        sinonimos_item = ""
+        if tiene_col_sinonimos and pd.notna(fila['Sinónimos']):
+            sinonimos_item = normalizar(str(fila['Sinónimos']))
+        
         fuzzy_desc = 0
         fuzzy_def = 0
         fuzzy_ctx = 0
+        fuzzy_sin = 0
         
         for t in terminos:
             fs_desc = fuzz.token_sort_ratio(t, desc)
@@ -479,6 +490,7 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
             fs_desc = max(fs_desc, fs_desc_partial)
             fs_def = fuzz.token_sort_ratio(t, definicion) if definicion else 0
             fs_ctx = fuzz.token_sort_ratio(t, contexto)
+            fs_sin = fuzz.token_sort_ratio(t, sinonimos_item) if sinonimos_item else 0
             
             if fs_desc > fuzzy_desc:
                 fuzzy_desc = fs_desc
@@ -486,14 +498,18 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
                 fuzzy_def = fs_def
             if fs_ctx > fuzzy_ctx:
                 fuzzy_ctx = fs_ctx
+            if fs_sin > fuzzy_sin:
+                fuzzy_sin = fs_sin
         
-        fuzzy = (fuzzy_desc * 0.6) + (fuzzy_def * 0.2) + (fuzzy_ctx * 0.2)
+        # Ajustar pesos: dar más peso a la descripción y sinónimos
+        fuzzy = (fuzzy_desc * 0.5) + (fuzzy_sin * 0.3) + (fuzzy_def * 0.1) + (fuzzy_ctx * 0.1)
         
         palabras_en_desc = sum(1 for p in palabras_clave if p in desc)
         palabras_en_def = sum(1 for p in palabras_clave if p in definicion)
+        palabras_en_sin = sum(1 for p in palabras_clave if p in sinonimos_item) if sinonimos_item else 0
         
         if palabras_clave:
-            porcentaje_palabras = (palabras_en_desc + palabras_en_def * 0.5) / len(palabras_clave)
+            porcentaje_palabras = (palabras_en_desc + palabras_en_def * 0.3 + palabras_en_sin * 0.4) / len(palabras_clave)
         else:
             porcentaje_palabras = 0
         
@@ -515,7 +531,7 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
             exacto = True
             score = max(score, 85)
         
-        if palabras_clave and palabras_en_desc == 0 and palabras_en_def == 0:
+        if palabras_clave and palabras_en_desc == 0 and palabras_en_def == 0 and palabras_en_sin == 0:
             score = score * 0.3
         
         if score >= 40 or exacto:
