@@ -407,6 +407,17 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     from sentence_transformers import util
     import torch
     
+    # =====================================================
+    # DEBUG - Verificar sinónimos recibidos
+    # =====================================================
+    with st.expander("🔍 DEBUG - Sinónimos recibidos en búsqueda"):
+        st.write(f"📌 Consulta original: {consulta}")
+        st.write(f"📌 Sinónimos recibidos ({len(sinonimos)}):")
+        for i, sin in enumerate(sinonimos[:10]):
+            st.write(f"  {i+1}. {sin}")
+        if len(sinonimos) > 10:
+            st.write(f"  ... y {len(sinonimos)-10} más")
+    
     modelo = cargar_modelo()
     
     consulta_norm = normalizar(consulta)
@@ -801,6 +812,13 @@ def main():
                         embeddings = cargar_embeddings()
                         sinonimos_dict = cargar_sinonimos()
                         sinonimos = sinonimos_dict.get(consulta, [])
+                        
+                        # DEBUG
+                        with st.expander("🔍 DEBUG - Sinónimos obtenidos"):
+                            st.write(f"📌 Consulta: {consulta}")
+                            st.write(f"📌 Sinónimos encontrados: {len(sinonimos)}")
+                            st.write(f"📌 Primeros 10 sinónimos: {sinonimos[:10]}")
+                        
                         resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
                         st.session_state.resultados = resultados
                         st.session_state.sinonimos = sinonimos
