@@ -267,15 +267,15 @@ def normalizar(texto):
 def buscar_por_codigo(df, consulta):
     consulta_limpia = re.sub(r"\s+", "", consulta).strip()
     
-    resultado_exacto = df[df["Código UNSPSC"].astype(str) == consulta_limpia]
+    resultado_exacto = df[df["Código"].astype(str) == consulta_limpia]
     if not resultado_exacto.empty:
         return resultado_exacto
     
-    resultado_parcial = df[df["Código UNSPSC"].astype(str).str.startswith(consulta_limpia)]
+    resultado_parcial = df[df["Código"].astype(str).str.startswith(consulta_limpia)]
     if not resultado_parcial.empty:
         return resultado_parcial
     
-    resultado_contiene = df[df["Código UNSPSC"].astype(str).str.contains(consulta_limpia, na=False)]
+    resultado_contiene = df[df["Código"].astype(str).str.contains(consulta_limpia, na=False)]
     if not resultado_contiene.empty:
         return resultado_contiene
     
@@ -304,8 +304,26 @@ def cargar_catalogo_excel():
         excel_path = Path("data/mapeo_completo.xlsx")
         if excel_path.exists():
             df = pd.read_excel(excel_path)
-            # Limpiar nombres de columnas
-            df.columns = df.columns.str.strip()
+            # Asegurar nombres de columnas
+            if 'Código' not in df.columns:
+                if len(df.columns) > 0:
+                    df.rename(columns={df.columns[0]: 'Código'}, inplace=True)
+            if 'Descripción' not in df.columns:
+                if len(df.columns) > 1:
+                    df.rename(columns={df.columns[1]: 'Descripción'}, inplace=True)
+            if 'Definición' not in df.columns:
+                if len(df.columns) > 2:
+                    df.rename(columns={df.columns[2]: 'Definición'}, inplace=True)
+            if 'Sinónimos' not in df.columns:
+                if len(df.columns) > 3:
+                    df.rename(columns={df.columns[3]: 'Sinónimos'}, inplace=True)
+            
+            # Asegurar que las columnas necesarias existan
+            columnas_necesarias = ['Código', 'Descripción', 'Definición', 'Sinónimos']
+            for col in columnas_necesarias:
+                if col not in df.columns:
+                    df[col] = ''
+            
             st.session_state.df_catalogo_excel = df
             return df
         else:
@@ -341,21 +359,19 @@ def buscar_en_excel(df, consulta):
     
     resultados = []
     
-    # Columnas a buscar
-    columnas_busqueda = ['Descripción', 'Sinónimos', 'Definición', 'Denominación']
-    columnas_disponibles = [col for col in columnas_busqueda if col in df.columns]
-    
-    # También buscar en todas las columnas de texto
+    # Columnas a buscar (todas las columnas de texto)
     columnas_texto = [col for col in df.columns if df[col].dtype == 'object']
     
     for idx, row in df.iterrows():
         score = 0
         coincidencias = []
+        texto_completo = ""
         
-        # Buscar en las columnas específicas
-        for col in columnas_disponibles:
+        # Buscar en todas las columnas de texto
+        for col in columnas_texto:
             valor = str(row[col]) if pd.notna(row[col]) else ""
             valor_norm = normalizar(valor)
+            texto_completo += " " + valor_norm
             
             # Coincidencia exacta de la consulta completa
             if consulta_norm in valor_norm:
@@ -368,15 +384,9 @@ def buscar_en_excel(df, consulta):
                     score += 10
                     coincidencias.append(f"{col}: '{palabra}' encontrado")
         
-        # Buscar en todas las columnas de texto (incluyendo las específicas)
-        for col in columnas_texto:
-            if col in columnas_disponibles:
-                continue  # Ya se procesaron
-            valor = str(row[col]) if pd.notna(row[col]) else ""
-            valor_norm = normalizar(valor)
-            if consulta_norm in valor_norm:
-                score += 30
-                coincidencias.append(f"{col}: '{consulta}' encontrado")
+        # Bonus si la consulta está en el texto completo
+        if consulta_norm in texto_completo:
+            score += 20
         
         # Si tiene puntaje, agregar a resultados
         if score > 0:
@@ -399,6 +409,25 @@ def buscar_en_excel(df, consulta):
 # =====================================================
 # BUSCADOR HÍBRIDO (con embeddings) - FALLBACK
 # =====================================================
+
+@st.cache_data
+def cargar_embeddings():
+    data = torch.load("db/embeddings.pt", map_location="cpu")
+    if isinstance(data, dict):
+        if 'embeddings' in data:
+            return data['embeddings']
+        else:
+            for key, value in data.items():
+                if isinstance(value, torch.Tensor):
+                    return value
+    if isinstance(data, torch.Tensor):
+        return data
+    raise ValueError(f"Formato de embeddings no soportado: {type(data)}")
+
+@st.cache_resource
+def cargar_modelo():
+    from sentence_transformers import SentenceTransformer
+    return SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
 def buscar_hibrido(df, embeddings, consulta, sinonimos):
     from rapidfuzz import fuzz
@@ -435,7 +464,7 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
         fila = df.iloc[idx]
         desc = normalizar(fila["Descripción"])
         definicion = normalizar(fila.get("Definición", ""))
-        contexto = normalizar(f"{fila['Segmento']} {fila['Familia']} {fila['Clase']}")
+        contexto = normalizar("")
         
         fuzzy_desc = 0
         fuzzy_def = 0
@@ -455,7 +484,7 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
             if fs_ctx > fuzzy_ctx:
                 fuzzy_ctx = fs_ctx
         
-        fuzzy = (fuzzy_desc * 0.6) + (fuzzy_def * 0.2) + (fuzzy_ctx * 0.2)
+        fuzzy = (fuzzy_desc * 0.7) + (fuzzy_def * 0.3)
         
         palabras_en_desc = sum(1 for p in palabras_clave if p in desc)
         palabras_en_def = sum(1 for p in palabras_clave if p in definicion)
@@ -493,40 +522,83 @@ def buscar_hibrido(df, embeddings, consulta, sinonimos):
     return resultados[:200]
 
 # =====================================================
+# FUNCIÓN PARA OBTENER JERARQUÍA DESDE SQLITE
+# =====================================================
+
+@st.cache_data
+def obtener_jerarquia(codigo):
+    """Obtiene Segmento, Familia y Clase desde la base de datos SQLite usando el código"""
+    if not codigo or codigo == 'No disponible':
+        return None, None, None
+    
+    try:
+        conn = sqlite3.connect("db/DGCP_UNSPSC.db")
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT Segmento, Familia, Clase 
+            FROM catalogo 
+            WHERE "Código UNSPSC" = ?
+        """, (codigo,))
+        resultado = cur.fetchone()
+        conn.close()
+        
+        if resultado:
+            return resultado[0], resultado[1], resultado[2]
+        return None, None, None
+    except Exception as e:
+        return None, None, None
+
+# =====================================================
 # MOSTRAR RESULTADO
 # =====================================================
 
 def mostrar_resultado(score, fila, rank):
     db = DatabaseManager()
-    cuenta, descripcion, fuente, confianza = db.obtener_digepres(
-        fila["Código Familia"] if "Código Familia" in fila else "",
-        descripcion_item=fila["Descripción"]
-    )
     
-    titulo = f"{score:.0f}% | {fila.get('Código UNSPSC', '')} | {fila['Descripción']}"
+    # Obtener datos de la fila del Excel
+    codigo = str(fila.get('Código', 'No disponible')) if pd.notna(fila.get('Código', 'No disponible')) else 'No disponible'
+    descripcion = str(fila.get('Descripción', 'Sin descripción')) if pd.notna(fila.get('Descripción', 'Sin descripción')) else 'Sin descripción'
+    definicion = str(fila.get('Definición', '')) if pd.notna(fila.get('Definición', '')) else ''
+    sinonimos = str(fila.get('Sinónimos', '')) if pd.notna(fila.get('Sinónimos', '')) else ''
+    
+    # Buscar Segmento, Familia, Clase desde la base de datos SQLite usando el código
+    segmento, familia, clase = obtener_jerarquia(codigo)
+    
+    titulo = f"{score:.0f}% | {codigo} | {descripcion[:50]}..."
     
     with st.expander(titulo):
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.write("**📋 Código:**", fila.get("Código UNSPSC", "No disponible"))
-            st.write("**📝 Descripción:**", fila["Descripción"])
-            if fila.get("Definición") and str(fila["Definición"]) != "nan":
-                st.write("**📖 Definición:**", fila["Definición"])
-            if fila.get("Sinónimos") and str(fila["Sinónimos"]) != "nan":
-                st.write("**🔗 Sinónimos:**", fila["Sinónimos"])
-            st.write("**📂 Segmento:**", fila.get("Segmento", "No disponible"))
-            st.write("**📁 Familia:**", fila.get("Familia", "No disponible"))
-            st.write("**📄 Clase:**", fila.get("Clase", "No disponible"))
+            st.write("**📋 Código:**", codigo)
+            st.write("**📝 Descripción:**", descripcion)
+            if definicion and definicion != 'nan':
+                st.write("**📖 Definición:**", definicion)
+            if sinonimos and sinonimos != 'nan':
+                st.write("**🔗 Sinónimos:**", sinonimos)
+            st.write("**📂 Segmento:**", segmento if segmento else "No disponible")
+            st.write("**📁 Familia:**", familia if familia else "No disponible")
+            st.write("**📄 Clase:**", clase if clase else "No disponible")
         
         with col2:
             st.write("**💰 Clasificación DIGEPRES**")
-            if cuenta:
-                st.success(f"**Cuenta:** {cuenta}")
-                st.write(f"**Descripción:** {descripcion}")
-                st.caption(f"🔍 Fuente: {fuente} | Confianza: {confianza:.0%}")
-            else:
+            try:
+                # Buscar DIGEPRES por código
+                cuenta, descripcion_cuenta, fuente, confianza = db.obtener_digepres(
+                    codigo[:2] if codigo != 'No disponible' and len(codigo) >= 2 else "",
+                    descripcion_item=descripcion
+                )
+                
+                if cuenta:
+                    st.success(f"**Cuenta:** {cuenta}")
+                    if descripcion_cuenta:
+                        st.write(f"**Descripción:** {descripcion_cuenta}")
+                    st.caption(f"🔍 Fuente: {fuente or 'N/A'} | Confianza: {confianza:.0%}")
+                else:
+                    st.warning("Sin clasificación DIGEPRES asignada")
+            except Exception as e:
                 st.warning("Sin clasificación DIGEPRES asignada")
+                st.caption(f"⚠️ Error: {e}")
 
 # =====================================================
 # FUNCIÓN PRINCIPAL
@@ -618,32 +690,8 @@ def main():
         
         if not df_catalogo.empty:
             st.session_state.df_catalogo_excel = df_catalogo
-            
-            # Filtros
-            if "Segmento" in df_catalogo.columns:
-                segmentos = sorted(df_catalogo["Segmento"].dropna().unique())
-                segmento = st.selectbox("Segmento", ["Todos"] + list(segmentos))
-                if segmento != "Todos":
-                    df_filtrado = df_catalogo[df_catalogo["Segmento"] == segmento]
-                else:
-                    df_filtrado = df_catalogo
-            else:
-                df_filtrado = df_catalogo
-            
-            if "Familia" in df_filtrado.columns:
-                familias = sorted(df_filtrado["Familia"].dropna().unique())
-                familia = st.selectbox("Familia", ["Todas"] + list(familias))
-                if familia != "Todas":
-                    df_filtrado = df_filtrado[df_filtrado["Familia"] == familia]
-            
-            if "Clase" in df_filtrado.columns:
-                clases = sorted(df_filtrado["Clase"].dropna().unique())
-                clase = st.selectbox("Clase", ["Todas"] + list(clases))
-                if clase != "Todas":
-                    df_filtrado = df_filtrado[df_filtrado["Clase"] == clase]
-            
-            st.caption(f"📊 {len(df_filtrado)} ítems disponibles")
-            st.session_state.df_filtrado = df_filtrado
+            st.session_state.df_filtrado = df_catalogo
+            st.caption(f"📊 {len(df_catalogo)} ítems disponibles")
         else:
             # Fallback a SQLite
             df_catalogo = cargar_catalogo()
@@ -710,29 +758,37 @@ def main():
                         df = cargar_catalogo()
                 
                 if df is not None and not df.empty:
-                    # Intentar búsqueda en Excel primero
-                    resultados_df = buscar_en_excel(df, consulta)
-                    
-                    if not resultados_df.empty:
-                        # Convertir a lista de tuplas (score, exacto, fila)
-                        resultados = []
-                        for _, fila in resultados_df.iterrows():
-                            resultados.append((100.0, True, fila))
-                        st.session_state.resultados = resultados
-                        st.session_state.tipo_busqueda = "excel"
-                    else:
-                        # Fallback a búsqueda híbrida
-                        try:
-                            embeddings = cargar_embeddings()
-                            sinonimos_dict = cargar_sinonimos()
-                            sinonimos = sinonimos_dict.get(normalizar(consulta), [])
-                            resultados = buscar_hibrido(df, embeddings, consulta, sinonimos)
+                    # Verificar si es búsqueda por código
+                    if es_busqueda_por_codigo(consulta):
+                        resultados_codigo = buscar_por_codigo(df, consulta)
+                        if not resultados_codigo.empty:
+                            resultados = []
+                            for _, fila in resultados_codigo.iterrows():
+                                resultados.append((100.0, True, fila))
                             st.session_state.resultados = resultados
-                            st.session_state.sinonimos = sinonimos
-                            st.session_state.tipo_busqueda = "hibrida"
-                        except Exception as e:
-                            st.error(f"❌ Error en búsqueda híbrida: {e}")
+                            st.session_state.tipo_busqueda = "código"
+                        else:
                             st.session_state.resultados = []
+                    else:
+                        # Búsqueda en Excel
+                        resultados_df = buscar_en_excel(df, consulta)
+                        
+                        if not resultados_df.empty:
+                            resultados = []
+                            for _, fila in resultados_df.iterrows():
+                                resultados.append((100.0, True, fila))
+                            st.session_state.resultados = resultados
+                            st.session_state.tipo_busqueda = "excel"
+                        else:
+                            # Fallback a búsqueda híbrida
+                            try:
+                                embeddings = cargar_embeddings()
+                                resultados = buscar_hibrido(df, embeddings, consulta, [])
+                                st.session_state.resultados = resultados
+                                st.session_state.tipo_busqueda = "hibrida"
+                            except Exception as e:
+                                st.error(f"❌ Error en búsqueda híbrida: {e}")
+                                st.session_state.resultados = []
                 else:
                     st.warning("No hay datos para buscar")
                     
@@ -773,12 +829,12 @@ def main():
                 export_data.append({
                     "Tipo": "Exacta" if exacto else "Relacionada",
                     "Score": round(score, 2),
-                    "Código UNSPSC": fila.get("Código UNSPSC", ""),
+                    "Código": fila.get("Código", ""),
                     "Descripción": fila.get("Descripción", ""),
+                    "Sinónimos": fila.get("Sinónimos", ""),
                     "Segmento": fila.get("Segmento", ""),
                     "Familia": fila.get("Familia", ""),
-                    "Clase": fila.get("Clase", ""),
-                    "Sinónimos": fila.get("Sinónimos", "")
+                    "Clase": fila.get("Clase", "")
                 })
             
             if export_data:
