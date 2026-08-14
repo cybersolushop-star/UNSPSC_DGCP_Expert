@@ -296,7 +296,7 @@ def es_busqueda_por_cuenta(consulta):
     return bool(re.match(r'^\d+\.\d+\.\d+\.\d+\.\d+$', consulta_limpia))
 
 # =====================================================
-# CARGAR DATOS DESDE EXCEL
+# CARGAR DATOS
 # =====================================================
 
 @st.cache_data
@@ -341,11 +341,18 @@ def cargar_catalogo_sqlite():
         return pd.DataFrame()
 
 # =====================================================
-# BUSCADOR EN EXCEL
+# BUSCADOR OPTIMIZADO
 # =====================================================
 
-def buscar_en_excel(df, consulta):
-    """Busca la consulta en todas las columnas del DataFrame"""
+def buscar_optimizado(df, consulta):
+    """
+    Busca en el DataFrame usando múltiples estrategias:
+    1. Coincidencia exacta en Código
+    2. Coincidencia parcial en Código
+    3. Búsqueda en Descripción, Sinónimos, Definición
+    4. Búsqueda en Segmento, Familia, Clase (si existen)
+    5. Búsqueda por palabras clave individuales
+    """
     if df.empty:
         return pd.DataFrame()
     
@@ -355,28 +362,80 @@ def buscar_en_excel(df, consulta):
     resultados = []
     columnas_texto = [col for col in df.columns if df[col].dtype == 'object']
     
+    # Columnas con mayor peso
+    columnas_principales = ['Descripción', 'Sinónimos', 'Definición']
+    columnas_principales = [col for col in columnas_principales if col in df.columns]
+    
+    # Columnas de jerarquía
+    columnas_jerarquia = ['Segmento', 'Familia', 'Clase']
+    columnas_jerarquia = [col for col in columnas_jerarquia if col in df.columns]
+    
     for idx, row in df.iterrows():
         score = 0
         texto_completo = ""
         
-        for col in columnas_texto:
-            valor = str(row[col]) if pd.notna(row[col]) else ""
-            valor_norm = normalizar(valor)
-            texto_completo += " " + valor_norm
-            
-            if consulta_norm in valor_norm:
-                score += 100
-            
-            for palabra in palabras:
-                if len(palabra) > 2 and palabra in valor_norm:
-                    score += 20
+        # 1. Coincidencia en Código (máxima prioridad)
+        codigo = str(row.get('Código', '')).strip()
+        if codigo:
+            codigo_norm = normalizar(codigo)
+            if consulta_norm == codigo_norm:
+                score += 500
+            elif codigo_norm.startswith(consulta_norm):
+                score += 300
+            elif consulta_norm in codigo_norm:
+                score += 200
         
+        # 2. Coincidencia en columnas principales
+        for col in columnas_principales:
+            valor = str(row.get(col, '')).strip()
+            if valor:
+                valor_norm = normalizar(valor)
+                texto_completo += " " + valor_norm
+                
+                # Coincidencia exacta de la frase completa
+                if consulta_norm in valor_norm:
+                    score += 150
+                
+                # Coincidencia de palabras individuales
+                for palabra in palabras:
+                    if len(palabra) > 2 and palabra in valor_norm:
+                        score += 20
+        
+        # 3. Coincidencia en jerarquía
+        for col in columnas_jerarquia:
+            valor = str(row.get(col, '')).strip()
+            if valor:
+                valor_norm = normalizar(valor)
+                texto_completo += " " + valor_norm
+                if consulta_norm in valor_norm:
+                    score += 80
+                for palabra in palabras:
+                    if len(palabra) > 2 and palabra in valor_norm:
+                        score += 10
+        
+        # 4. Coincidencia en otras columnas de texto
+        for col in columnas_texto:
+            if col in columnas_principales or col in columnas_jerarquia or col == 'Código':
+                continue
+            valor = str(row.get(col, '')).strip()
+            if valor:
+                valor_norm = normalizar(valor)
+                texto_completo += " " + valor_norm
+                if consulta_norm in valor_norm:
+                    score += 40
+        
+        # Bonus: si la consulta está en el texto completo
         if consulta_norm in texto_completo:
             score += 30
         
+        # Si tiene puntaje, agregar a resultados
         if score > 0:
-            resultados.append({'fila': row, 'score': score})
+            resultados.append({
+                'fila': row,
+                'score': score
+            })
     
+    # Ordenar por puntaje
     resultados.sort(key=lambda x: x['score'], reverse=True)
     
     if resultados:
@@ -416,9 +475,6 @@ def mostrar_resultado(score, fila, rank):
     definicion = str(fila.get('Definición', '')) if pd.notna(fila.get('Definición', '')) else ''
     sinonimos = str(fila.get('Sinónimos', '')) if pd.notna(fila.get('Sinónimos', '')) else ''
     
-    # Obtener la cuenta DIGEPRES desde la columna Auxiliar del Excel
-    cuenta_excel = str(fila.get('Auxiliar', '')) if pd.notna(fila.get('Auxiliar', '')) else ''
-    
     segmento, familia, clase = obtener_jerarquia(codigo)
     
     titulo = f"{score:.0f}% | {codigo} | {descripcion[:50]}..."
@@ -438,52 +494,20 @@ def mostrar_resultado(score, fila, rank):
         
         with col2:
             st.write("**💰 Clasificación DIGEPRES**")
-            
-            # 1. Primero usar la cuenta del Excel si existe
-            if cuenta_excel and cuenta_excel != 'nan' and len(cuenta_excel) > 5:
-                st.success(f"**Cuenta:** {cuenta_excel}")
-                st.caption("📌 Fuente: Datos del Excel (Auxiliar)")
-            else:
-                # 2. Buscar en la tabla consultas de SQLite
-                cuenta = None
-                descripcion_cuenta = None
-                fuente = None
-                confianza = 0
-                
-                try:
-                    conn = sqlite3.connect("db/DGCP_UNSPSC.db")
-                    cur = conn.cursor()
-                    
-                    # Buscar por código completo
-                    cur.execute("""
-                        SELECT cuenta, descripcion, fuente, confianza 
-                        FROM consultas 
-                        WHERE codigo_unspsc = ? OR codigo = ?
-                    """, (codigo, codigo))
-                    resultado = cur.fetchone()
-                    conn.close()
-                    
-                    if resultado:
-                        cuenta, descripcion_cuenta, fuente, confianza = resultado
-                        st.success(f"**Cuenta:** {cuenta}")
-                        if descripcion_cuenta:
-                            st.write(f"**Descripción:** {descripcion_cuenta}")
-                        st.caption(f"🔍 Fuente: {fuente or 'SQLite'} | Confianza: {confianza:.0%}")
-                    else:
-                        # 3. Fallback: usar el método original
-                        cuenta, descripcion_cuenta, fuente, confianza = db.obtener_digepres(
-                            codigo[:2] if codigo != 'No disponible' and len(codigo) >= 2 else "",
-                            descripcion_item=descripcion
-                        )
-                        if cuenta:
-                            st.success(f"**Cuenta:** {cuenta}")
-                            if descripcion_cuenta:
-                                st.write(f"**Descripción:** {descripcion_cuenta}")
-                            st.caption(f"🔍 Fuente: {fuente or 'N/A'} | Confianza: {confianza:.0%}")
-                        else:
-                            st.warning("Sin clasificación DIGEPRES asignada")
-                except Exception as e:
-                    st.warning(f"⚠️ Error al buscar cuenta: {e}")
+            try:
+                cuenta, descripcion_cuenta, fuente, confianza = db.obtener_digepres(
+                    codigo[:2] if codigo != 'No disponible' and len(codigo) >= 2 else "",
+                    descripcion_item=descripcion
+                )
+                if cuenta:
+                    st.success(f"**Cuenta:** {cuenta}")
+                    if descripcion_cuenta:
+                        st.write(f"**Descripción:** {descripcion_cuenta}")
+                    st.caption(f"🔍 Fuente: {fuente or 'N/A'} | Confianza: {confianza:.0%}")
+                else:
+                    st.warning("Sin clasificación DIGEPRES asignada")
+            except:
+                st.warning("Sin clasificación DIGEPRES asignada")
 
 # =====================================================
 # FUNCIÓN PRINCIPAL
@@ -569,13 +593,11 @@ def main():
         # =====================================================
         st.header("📂 Filtros")
         
-        # Cargar datos desde SQLite para los filtros (tiene Segmento, Familia, Clase)
         df_sqlite = cargar_catalogo_sqlite()
         
         if not df_sqlite.empty:
             st.session_state.df_sqlite = df_sqlite
             
-            # Filtro por Segmento
             if 'Segmento' in df_sqlite.columns:
                 segmentos = sorted(df_sqlite['Segmento'].dropna().unique())
                 segmento_seleccionado = st.selectbox("Segmento", ["Todos"] + list(segmentos))
@@ -586,24 +608,20 @@ def main():
             else:
                 df_filtrado_sqlite = df_sqlite
             
-            # Filtro por Familia
             if 'Familia' in df_filtrado_sqlite.columns:
                 familias = sorted(df_filtrado_sqlite['Familia'].dropna().unique())
                 familia_seleccionada = st.selectbox("Familia", ["Todas"] + list(familias))
                 if familia_seleccionada != "Todas":
                     df_filtrado_sqlite = df_filtrado_sqlite[df_filtrado_sqlite['Familia'] == familia_seleccionada]
             
-            # Filtro por Clase
             if 'Clase' in df_filtrado_sqlite.columns:
                 clases = sorted(df_filtrado_sqlite['Clase'].dropna().unique())
                 clase_seleccionada = st.selectbox("Clase", ["Todas"] + list(clases))
                 if clase_seleccionada != "Todas":
                     df_filtrado_sqlite = df_filtrado_sqlite[df_filtrado_sqlite['Clase'] == clase_seleccionada]
             
-            # Guardar los códigos filtrados
             codigos_filtrados = df_filtrado_sqlite['Código UNSPSC'].astype(str).tolist()
             
-            # Cargar Excel con los datos de búsqueda
             df_excel = cargar_catalogo_excel()
             if not df_excel.empty:
                 df_excel['Código'] = df_excel['Código'].astype(str)
@@ -614,7 +632,6 @@ def main():
                 st.session_state.df_filtrado = pd.DataFrame()
                 st.warning("⚠️ No se pudo cargar el catálogo")
         else:
-            # Fallback: usar Excel directamente
             df_excel = cargar_catalogo_excel()
             if not df_excel.empty:
                 st.session_state.df_filtrado = df_excel
@@ -656,12 +673,12 @@ def main():
     consulta = st.text_input(
         "🔎 Describa el bien o servicio, ingrese un código UNSPSC o una cuenta DIGEPRES:",
         value=st.session_state.consulta,
-        placeholder="Ej: Construcción de verja perimetral, perro, computadora, 10101502, 2.3.9.4.01...",
+        placeholder="Ej: carro, computadora, construcción de verja, 10101502, 2.3.9.4.01...",
         key="consulta_input"
     )
 
     # =====================================================
-    # EJECUTAR BÚSQUEDA
+    # EJECUTAR BÚSQUEDA OPTIMIZADA
     # =====================================================
     if consulta and consulta != st.session_state.ultima_busqueda:
         st.session_state.ultima_busqueda = consulta
@@ -675,8 +692,11 @@ def main():
                 df = st.session_state.df_filtrado
                 if df.empty:
                     df = cargar_catalogo_excel()
+                    if df.empty:
+                        df = cargar_catalogo_sqlite()
                 
                 if df is not None and not df.empty:
+                    # Verificar si es búsqueda por código
                     if es_busqueda_por_codigo(consulta):
                         resultados_codigo = buscar_por_codigo(df, consulta)
                         if not resultados_codigo.empty:
@@ -687,11 +707,14 @@ def main():
                         else:
                             st.session_state.resultados = []
                     else:
-                        df_resultados = buscar_en_excel(df, consulta)
+                        # Búsqueda optimizada
+                        df_resultados = buscar_optimizado(df, consulta)
                         if not df_resultados.empty:
                             resultados = []
                             for _, fila in df_resultados.iterrows():
-                                resultados.append((100.0, fila))
+                                # Calcular un score basado en la posición
+                                score = max(100 - (len(resultados) * 0.5), 50)
+                                resultados.append((score, fila))
                             st.session_state.resultados = resultados
                         else:
                             st.session_state.resultados = []
